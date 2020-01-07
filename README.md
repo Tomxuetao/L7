@@ -1,66 +1,89 @@
-# L7 Large-scale WebGL-powered Geospatial Data Visualization
-
-[官方网站](http://antv.alipay.com/l7)
-
-[![版本](https://badgen.net/npm/v/@antv/l7)](https://www.npmjs.com/@antv/l7)
-[![NPM downloads](http://img.shields.io/npm/dm/@antv/l7.svg)](http://npmjs.com/@antv/l7)
-![最近提交](https://badgen.net/github/last-commit/antvis/L7)
-
-## 安装
-### 
-### 加载高德地图
-
-L7 目前底图采用高德地图，因此使用之前你还需要使用开发者 Key，你可以使用适用于『Web端』开发者 Key。如果没有可以点击 [这里申请](https://lbs.amap.com/dev/key/)。
-申请开发者 Key 是免费的。如果指定错误的版本号和开发者 Key，将无法加载 L7。目前最新版本请参考[这里](https://lbs.amap.com/api/loca-api/changelog)，如果不指定版本号，则使用最新版本。
- 在你的页面引入高德地图API
-```html
-<script src="https://webapi.amap.com/maps?v=1.4.15&key=您申请的key值"></script>
-```
-
-
-### HTML 引入 L7
-
-既可以通过将脚本下载到本地也可以直接引入在线资源；
-
-```html
-<!-- 引入在线资源 -->
-<script src="https://gw.alipayobjects.com/os/antv/pkg/_antv.l7-1.3.1/dist/l7.min.js"></script>
-```
-  
-### 通过 npm 安装
-
-我们提供了 L7  npm 包，通过下面的命令即可完成安装
-
-```bash
-npm i @antv/l7 --save
-```
-
-成功安装完成之后，即可使用 `import` 或 `require` 进行引用。
-
-```javascript
-import * as  L7 from '@antv/l7';
-// 新建Scene
-```
-
-[L7官网](http://antv.alipay.com/zh-cn/l7/1.x/index.html)
-
-
-
 # L7
 
+[![travis ci](https://travis-ci.com/antvis/L7.svg?branch=master)](https://travis-ci.com/antvis/L7) [![](https://flat.badgen.net/npm/v/@antv/l7?icon=npm)](https://www.npmjs.com/package/@antv/l7) ![最近提交](https://badgen.net/github/last-commit/antvis/L7)
 
-## Development
+Large-scale WebGL-powered Geospatial data visualization analysis framework.
 
-```bash
-$ npm install
+[中文 README](./README.zh-CN.md)
 
-# run test case
-$ npm run test-live
+Powered by WebGL, the rendering technology of L7 supports fast and efficient rendering of big data, 2D/3D rendering, possible through calculation and analysis of spatial data by GPU Parallel Compu-ting.
 
-# build watching file changes and run demos
-$ npm run start
+L7 focuses on geographic data expressiveness，interaction and design of geographic visualization layers. The basemaps on the platform are powered by third-party services
 
-# run demos
-$ npm run demos
+## 🌄 l7 visualization demos
+
+![l7 demo](https://gw.alipayobjects.com/mdn/antv_site/afts/img/A*SGU-QIZsnyoAAAAAAAAAAABkARQnAQ)
+
+## 🌟 Highlight features of L7 2.0
+
+- 🌏 Data-driven Visualization
+
+  Layer visualization API design base Semiology of Graphics.
+
+  It supports rich map visualization types for a better insight on data.
+
+- 🌏 High performance rendering with 2D/3D effect
+  Real-time and dynamic rendering with millions of spatial data.
+
+- 🌏 Simple and flexible data format
+
+  L7 supports a wide variety of data formats including CSV, JSON, geojson, among others, eliminating the need to run conversions ahead of time.
+
+- 🌏 Multi-basemap
+
+  For global users, Mapbox is easy to be embedded by a simple line of code.
+
+## Getting Started
+
+### 📦 Installation
+
+```
+npm install @antv/l7@beta
 ```
 
+### Init Map by L7 scene
+
+```javascript
+import { Scene } from '@antv/l7';
+import { Mapbox } from '@antv/l7-maps';
+
+const scene = new Scene({
+  id: 'map',
+  map: new Mapbox({
+    style: 'light',
+    pitch: 0,
+    center: [107.054293, 35.246265],
+    zoom: 4.056,
+  }),
+});
+```
+
+### Add Layer
+
+```javascript
+import { PointLayer } from '@antv/l7';
+
+const pointLayer = new PointLayer()
+  .source(data)
+  .shape('circle')
+  .size('mag', [1, 25])
+  .color('mag', ['#5B8FF9', '#5CCEA1'])
+  .style({
+    opacity: 0.3,
+    strokeWidth: 1,
+  });
+
+scene.addLayer(pointLayer);
+```
+
+## :memo: Documentation
+
+- [Getting started with L7](https://l7.antv.vision/en/docs/api/l7)
+- [Tutorials](https://l7.antv.vision/en/docs/tutorial/quickstart)
+- [API documentation](https://l7.antv.vision/en/docs/api/l7)
+- [Examples](https://l7.antv.vision/en/examples/gallery/basic)
+- [Contributor documentation](./.github/CONTRIBUTING.md)
+
+## ✅ License
+
+[MIT license](./LICENSE).

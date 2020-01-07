@@ -1,0 +1,51 @@
+{
+  "name": "@antv/l7-source",
+  "version": "2.0.0",
+  "description": "",
+  "main": "lib/index.js",
+  "module": "es/index.js",
+  "types": "es/index.d.ts",
+  "sideEffects": true,
+  "files": [
+    "lib",
+    "es",
+    "README.md"
+  ],
+  "scripts": {
+    "tsc": "tsc --project tsconfig.build.json",
+    "clean": "rimraf dist; rimraf es; rimraf lib;",
+    "build": "run-p build:*",
+    "build:cjs": "BABEL_ENV=cjs babel src --root-mode upward --out-dir lib --source-maps --extensions .ts,.tsx --delete-dir-on-start --no-comments",
+    "build:esm": "BABEL_ENV=esm babel src --root-mode upward --out-dir es --source-maps --extensions .ts,.tsx --delete-dir-on-start --no-comments",
+    "watch": "BABEL_ENV=cjs babel src --watch --root-mode upward --out-dir lib --source-maps --extensions .ts,.tsx --delete-dir-on-start --no-comments",
+    "lint:ts": "run-p -c lint:ts-*",
+    "test": "jest"
+  },
+  "author": "lzxue",
+  "license": "ISC",
+  "dependencies": {
+    "@antv/l7-core": "^2.0.0",
+    "@antv/l7-utils": "^2.0.0",
+    "@babel/runtime": "^7.7.7",
+    "@mapbox/geojson-rewind": "^0.4.0",
+    "@turf/helpers": "^6.1.4",
+    "@turf/invariant": "^6.1.2",
+    "@turf/meta": "^6.0.2",
+    "d3-dsv": "^1.1.1",
+    "d3-hexbin": "^0.2.2",
+    "eventemitter3": "^4.0.0",
+    "inversify": "^5.0.1",
+    "lodash": "^4.17.15",
+    "supercluster": "^6.0.2",
+    "tapable": "^2.0.0-beta.8"
+  },
+  "devDependencies": {
+    "@types/d3-dsv": "^1.0.36",
+    "@types/d3-hexbin": "^0.2.3",
+    "@types/lodash": "^4.14.138"
+  },
+  "gitHead": "00d23ef70d9ec76eec26833fc50ac18fe584cf26",
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,25 +1,33 @@
 language: node_js
-
-node_js:
-  - "12"
-
-env:
-  matrix:
-    - TEST_TYPE=ci
-
+os: linux
+sudo: required
+dist: trusty
 addons:
   apt:
     packages:
-      - xvfb
-       - libgconf-2-4
+    - mesa-utils
+    - xvfb
+    - libgl1-mesa-dri
+    - libglapi-mesa
+    - libosmesa6
+
+node_js:
+  - '12'
+
+env:
+  - NODE_ENV=test
+
+before_install:
+  - curl -o- -L https://yarnpkg.com/install.sh | bash
+  - export PATH="$HOME/.yarn/bin:$PATH"
 
 install:
-  - export DISPLAY=':99.0'
-  - Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
-  - npm install
+  - yarn install
+
+before_script:
+  - export DISPLAY=:99.0; sh -e /etc/init.d/xvfb start
 
 script:
-  - |
-    if [ "$TEST_TYPE" = ci ]; then
-      npm run ci
-    fi
+  - yarn lint
+  - yarn test
+  - yarn build

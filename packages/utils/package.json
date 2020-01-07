@@ -1,0 +1,32 @@
+{
+  "name": "@antv/l7-utils",
+  "version": "2.0.0",
+  "description": "",
+  "main": "lib/index.js",
+  "module": "es/index.js",
+  "types": "es/index.d.ts",
+  "sideEffects": true,
+  "files": [
+    "lib",
+    "es",
+    "README.md"
+  ],
+  "scripts": {
+    "tsc": "tsc --project tsconfig.build.json",
+    "clean": "rimraf dist; rimraf es; rimraf lib;",
+    "build": "run-p build:*",
+    "build:cjs": "BABEL_ENV=cjs babel src --root-mode upward --out-dir lib --source-maps --extensions .ts,.tsx --delete-dir-on-start --no-comments",
+    "build:esm": "BABEL_ENV=esm babel src --root-mode upward --out-dir es --source-maps --extensions .ts,.tsx --delete-dir-on-start --no-comments",
+    "watch": "BABEL_ENV=cjs babel src --watch --root-mode upward --out-dir lib --source-maps --extensions .ts,.tsx --delete-dir-on-start --no-comments"
+  },
+  "author": "lzxue",
+  "license": "ISC",
+  "dependencies": {
+    "@babel/runtime": "^7.7.7",
+    "@turf/helpers": "^6.1.4"
+  },
+  "gitHead": "00d23ef70d9ec76eec26833fc50ac18fe584cf26",
+  "publishConfig": {
+    "access": "public"
+  }
+}
