@@ -210,7 +210,7 @@ function toIEIMageData(ctx: Context, data: Uint8ClampedArray) {
 }
 
 export function getDefaultDomain(rampColors: IColorRamp) {
-  switch (rampColors.type) {
+  switch (rampColors?.type) {
     case 'cat':
       return [0, 255];
     default:

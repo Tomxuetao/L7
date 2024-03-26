@@ -1,12 +1,9 @@
 import EventEmitter from 'eventemitter3';
 import Hammer from 'hammerjs';
-import { inject, injectable } from 'inversify';
-import 'reflect-metadata';
-// @ts-ignore
-import { TYPES } from '../../types';
-import type { ILngLat, IMapService } from '../map/IMapService';
-import type { IInteractionService,  } from './IInteractionService';
-import {InteractionEvent } from './IInteractionService';
+import type { L7Container } from '../../inversify.config';
+import type { ILngLat } from '../map/IMapService';
+import type { IInteractionService } from './IInteractionService';
+import { InteractionEvent } from './IInteractionService';
 const DragEventMap: { [key: string]: string } = {
   panstart: 'dragstart',
   panmove: 'dragging',
@@ -17,14 +14,20 @@ const DragEventMap: { [key: string]: string } = {
  * 由于目前 L7 与地图结合的方案为双 canvas 而非共享 WebGL Context，事件监听注册在地图底图上。
  * 除此之外，后续如果支持非地图场景，事件监听就需要注册在 L7 canvas 上。
  */
-@injectable()
 export default class InteractionService
   extends EventEmitter
   implements IInteractionService
 {
   public indragging: boolean = false;
-  @inject(TYPES.IMapService)
-  private readonly mapService: IMapService;
+
+  get mapService() {
+    return this.container.mapService;
+  }
+
+  constructor(private readonly container: L7Container) {
+    super();
+  }
+
   // @ts-ignore
   // private hammertime: HammerManager;
   private hammertime: any;
@@ -62,15 +65,6 @@ export default class InteractionService
     this.emit(InteractionEvent.Active, { featureId: id });
   }
 
-  public handleMiniEvent(e: any) {
-    // @ts-ignore
-    this.onHover({
-      clientX: e.touches[0].pageX,
-      clientY: e.touches[0].pageY,
-      type: 'touch',
-    });
-  }
-
   private addEventListenerOnMap() {
     const $containter = this.mapService.getMapContainer();
     if ($containter) {
@@ -94,8 +88,10 @@ export default class InteractionService
       // hammertime.get('pinch').set({ enable: true });
       hammertime.on('dblclick click', this.onHammer);
       hammertime.on('panstart panmove panend pancancel', this.onDrag);
-      // $containter.addEventListener('touchstart', this.onTouch);
+      $containter.addEventListener('touchstart', this.onTouch);
+      $containter.addEventListener('touchend', this.onTouchEnd);
       $containter.addEventListener('mousemove', this.onHover);
+      $containter.addEventListener('touchmove', this.onTouchMove);
       // $containter.addEventListener('click', this.onHover);
       $containter.addEventListener('mousedown', this.onHover, true);
       $containter.addEventListener('mouseup', this.onHover);
@@ -111,8 +107,8 @@ export default class InteractionService
       $containter.removeEventListener('mousemove', this.onHover);
       this.hammertime.off('dblclick click', this.onHammer);
       this.hammertime.off('panstart panmove panend pancancel', this.onDrag);
-      // $containter.removeEventListener('touchstart', this.onTouch);
-      // $containter.removeEventListener('click', this.onHover);
+      $containter.removeEventListener('touchstart', this.onTouch);
+      $containter.removeEventListener('touchend', this.onTouchEnd);
       $containter.removeEventListener('mousedown', this.onHover);
       $containter.removeEventListener('mouseup', this.onHover);
       // $containter.removeEventListener('dblclick', this.onHover);
@@ -138,9 +134,30 @@ export default class InteractionService
     const touch = target.touches[0];
     // @ts-ignore
     this.onHover({
-      x: touch.pageX,
-      y: touch.pageY,
-      type: 'touch',
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      type: 'touchstart',
+    });
+  };
+  private onTouchEnd = (target: TouchEvent) => {
+    if (target.changedTouches.length > 0) {
+      const touch = target.changedTouches[0];
+      // @ts-ignore
+      this.onHover({
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        type: 'touchend',
+      });
+    }
+  };
+  // touch move == drag map 目前会被拦截
+  private onTouchMove = (target: TouchEvent) => {
+    const touch = target.changedTouches[0];
+    // @ts-ignore
+    this.onHover({
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      type: 'touchmove',
     });
   };
 
@@ -177,7 +194,6 @@ export default class InteractionService
       y = y - top - $containter.clientTop;
     }
     const lngLat = this.mapService.containerToLngLat([x, y]);
-
     if (type === 'click') {
       this.isDoubleTap(x, y, lngLat);
       return;

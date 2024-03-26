@@ -8,10 +8,9 @@ import type {
   IStatusOptions,
   IViewport,
   MapStyleConfig,
-  Point} from '@antv/l7-core';
-import {
-  MapServiceEvent
+  Point,
 } from '@antv/l7-core';
+import { MapServiceEvent } from '@antv/l7-core';
 import { DOM } from '@antv/l7-utils';
 import { mat4, vec3 } from 'gl-matrix';
 import BaseMapService from '../utils/BaseMapService';
@@ -115,7 +114,7 @@ export default class BMapService extends BaseMapService<BMapGL.Map> {
       // false，表示用户未执行centerAndZoom进行地图初始渲染
       // @ts-ignore
       if (!this.map.isLoaded()) {
-        this.map.centerAndZoom(point, zoom + 1.75);
+        this.map.centerAndZoom(point, zoom);
       }
       this.initMapByConfig(this.config);
       this.map.on('update', this.handleCameraChanged);
@@ -156,7 +155,7 @@ export default class BMapService extends BaseMapService<BMapGL.Map> {
       // @ts-ignore
       this.map = map;
       const point = new BMapGL.Point(center[0], center[1]);
-      this.map.centerAndZoom(point, zoom + 1.75);
+      this.map.centerAndZoom(point, zoom);
       this.initMapByConfig(this.config);
       // 监听地图相机事件
       // @ts-ignore
@@ -177,6 +176,10 @@ export default class BMapService extends BaseMapService<BMapGL.Map> {
 
   public getMarkerContainer(): HTMLElement {
     return this.map.getPanes().markerPane!;
+  }
+
+  public getCanvasOverlays() {
+    return this.getMap().getContainer().querySelector('#platform')?.lastChild as HTMLElement;
   }
 
   // MapEvent // 定义事件类型
@@ -239,12 +242,12 @@ export default class BMapService extends BaseMapService<BMapGL.Map> {
     const size = this.getMap().getSize();
     return [size.width, size.height];
   }
-
+  // 百度地图缩放等级
   public getMinZoom(): number {
-    return this.map.getMinZoom() - 1.75;
+    return this.map.getMinZoom();
   }
   public getMaxZoom(): number {
-    return this.map.getMaxZoom() - 1.75;
+    return this.map.getMaxZoom();
   }
 
   // get map params
@@ -253,7 +256,7 @@ export default class BMapService extends BaseMapService<BMapGL.Map> {
   }
 
   public getZoom(): number {
-    return this.getMap().getZoom() - 1.75;
+    return this.getMap().getZoom();
   }
 
   public getCenter(options?: ICameraOptions): ILngLat {
@@ -392,7 +395,7 @@ export default class BMapService extends BaseMapService<BMapGL.Map> {
   }
 
   public setZoom(zoom: number): any {
-    this.getMap().setZoom(zoom + 1.75);
+    this.getMap().setZoom(zoom);
   }
 
   public setMapStatus(option: Partial<IStatusOptions>): void {

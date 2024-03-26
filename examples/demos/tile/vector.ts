@@ -37,11 +37,13 @@ export function MapRender(option: {
   });
   layer
     .source(source)
-    .color('#f00')
+    .color('#ddd')
 
     .style({
       opacity: 0.5,
     });
+
+
   const boundaries = new PolygonLayer({
     //   featureId: 'COLOR',
     sourceLayer: 'boundaries', // woods hillshade contour ecoregions ecoregions2 city
@@ -122,10 +124,9 @@ export function MapRender(option: {
     .style({
       opacity: 1,
     });
-
+  // TODO:Mask 和缩放取消
   scene.on('loaded', () => {
     scene.addLayer(layer);
-    // scene.startAnimate();
     scene.addLayer(boundaries);
     scene.addLayer(natural);
     scene.addLayer(buildings);
@@ -133,6 +134,10 @@ export function MapRender(option: {
     scene.addLayer(roads);
     scene.addLayer(water);
     scene.addLayer(point);
+    layer.on('inited', () => {
+      console.log(layer.tileLayer?.getLayers())
+    })
+  
 
     if (window['screenshot']) {
       window['screenshot']();

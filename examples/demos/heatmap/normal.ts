@@ -42,6 +42,12 @@ export function MapRender(option: {
                 },
               });
             scene.addLayer(layer);
+            layer.on('inited', () => {
+              console.log(layer.getLegend('color'))
+            })
+            if (window['screenshot']) {
+              window['screenshot']();
+            }
           });
       });
 }

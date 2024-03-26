@@ -6,20 +6,16 @@ import type {
   ITexture2D,
 } from '@antv/l7-core';
 import { AttributeType, gl } from '@antv/l7-core';
-import { LineTriangulation, rgb2arr } from '@antv/l7-utils';
+import { rgb2arr } from '@antv/l7-utils';
 import BaseModel from '../../core/BaseModel';
 import type { ILineLayerStyleOptions } from '../../core/interface';
 import { LinearDir, TextureBlend } from '../../core/interface';
-// import { LineTriangulation } from '../../core/triangulation';
+import { LineTriangulation } from '../../core/triangulation';
 
 import { ShaderLocation } from '../../core/CommonStyleAttribute';
 import line_frag from '../shaders/line/line_frag.glsl';
 import line_vert from '../shaders/line/line_vert.glsl';
 
-const lineStyleObj: { [key: string]: number } = {
-  solid: 0.0,
-  dash: 1.0,
-};
 export default class LineModel extends BaseModel {
   private textureEventFlag: boolean = false;
   protected texture: ITexture2D = this.createTexture2D({
@@ -55,7 +51,7 @@ export default class LineModel extends BaseModel {
       u_dash_array.push(0, 0);
     }
     if (this.rendererService.getDirty() && this.texture) {
-      this.texture.bind();
+      this.texture?.bind();
     }
     const { animateOption } = this.layer.getLayerConfig() as ILayerConfig;
     // 转化渐变色
@@ -120,7 +116,6 @@ export default class LineModel extends BaseModel {
     const { depth = false } =
       this.layer.getLayerConfig() as ILineLayerStyleOptions;
     const { frag, vert, type } = this.getShaders();
-    // console.log(frag)
     this.layer.triangulation = LineTriangulation;
     const model = await this.layer.buildLayerModel({
       moduleName: 'line' + type,

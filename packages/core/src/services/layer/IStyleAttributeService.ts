@@ -25,6 +25,7 @@ export enum ScaleTypes {
   THRESHOLD = 'threshold',
   CAT = 'cat',
   DIVERGING = 'diverging',
+  CUSTOM = 'threshold',
 }
 export type ScaleTypeName =
   | 'linear'
@@ -37,7 +38,8 @@ export type ScaleTypeName =
   | 'threshold'
   | 'diverging'
   | 'sequential'
-  | 'cat';
+  | 'cat'
+  | 'custom';
 
 export type ScaleAttributeType = 'color' | 'size' | 'shape';
 export interface IScale {
@@ -208,6 +210,7 @@ export interface IStyleAttributeService {
     encodedFeatures: IEncodeFeature[],
     triangulation?: Triangulation,
     styleOption?: unknown,
+    layer?: ILayer,
   ): {
     attributes: {
       [attributeName: string]: IAttribute;

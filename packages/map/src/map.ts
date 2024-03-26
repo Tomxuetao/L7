@@ -147,7 +147,7 @@ export class Map extends Camera {
       this.emit('move', new window.CustomEvent('move', eventData));
     }
 
-    this.emit('resize', new window.CustomEvent('resize', eventData));
+  this.emit('resize', new window.CustomEvent('resize', eventData));
 
     if (fireMoving) {
       this.emit('moveend', new window.CustomEvent('moveend', eventData));
@@ -166,6 +166,10 @@ export class Map extends Camera {
 
   public getCanvasContainer() {
     return this.canvasContainer;
+  }
+
+  public getCanvasOverlays() {
+    return this.getCanvasContainer() as HTMLElement;
   }
 
   public project(lngLat: LngLatLike) {
@@ -372,14 +376,6 @@ export class Map extends Camera {
     if (this.options.interactive) {
       canvasContainer.classList.add('l7-interactive');
     }
-  }
-
-  /**
-   * 小程序环境构建容器
-   */
-  private initMiniContainer() {
-    this.container = this.options.canvas as HTMLCanvasElement;
-    this.canvasContainer = this.container;
   }
 
   private containerDimensions(): [number, number] {
