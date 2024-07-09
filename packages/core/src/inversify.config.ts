@@ -45,7 +45,6 @@ import MultiPassRenderer from './services/renderer/passes/MultiPassRenderer';
 import PixelPickingPass from './services/renderer/passes/PixelPickingPass';
 import PostProcessor from './services/renderer/passes/PostProcessor';
 import RenderPass from './services/renderer/passes/RenderPass';
-import TAAPass from './services/renderer/passes/TAAPass';
 import BloomPass from './services/renderer/passes/post-processing/BloomPass';
 import BlurHPass from './services/renderer/passes/post-processing/BlurHPass';
 import BlurVPass from './services/renderer/passes/post-processing/BlurVPass';
@@ -85,7 +84,7 @@ export interface L7Container {
   multiPassRenderer: IMultiPassRenderer;
   customRenderService: {
     [key: string]: any;
-  }
+  };
 }
 
 let sceneIdCounter = 0;
@@ -113,7 +112,7 @@ export function createSceneContainer(): L7Container {
     markerService,
     popupService,
     controlService,
-    customRenderService:{}
+    customRenderService: {},
   };
 
   // lazy binding
@@ -133,7 +132,6 @@ export function createSceneContainer(): L7Container {
     clear: new ClearPass(),
     pixelPicking: new PixelPickingPass(),
     render: new RenderPass(),
-    taa: new TAAPass(shaderModuleService),
   };
   container.normalPassFactory = (named: string) => {
     return normalPass[named];
@@ -163,15 +161,9 @@ export function createLayerContainer(sceneContainer: L7Container) {
     ...sceneContainer,
   };
 
-  layerContainer.postProcessor = new PostProcessor(
-    layerContainer.rendererService,
-  );
-  layerContainer.multiPassRenderer = new MultiPassRenderer(
-    layerContainer.postProcessor,
-  );
-  layerContainer.styleAttributeService = new StyleAttributeService(
-    layerContainer.rendererService,
-  );
+  layerContainer.postProcessor = new PostProcessor(layerContainer.rendererService);
+  layerContainer.multiPassRenderer = new MultiPassRenderer(layerContainer.postProcessor);
+  layerContainer.styleAttributeService = new StyleAttributeService(layerContainer.rendererService);
 
   return layerContainer;
 }

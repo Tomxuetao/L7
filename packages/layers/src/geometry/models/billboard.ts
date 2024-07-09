@@ -1,25 +1,24 @@
-import type {
-  IEncodeFeature,
-  IModel,
-  IModelUniform,
-  ITexture2D} from '@antv/l7-core';
-import {
-  AttributeType,
-  gl
-} from '@antv/l7-core';
+import type { IEncodeFeature, IModel, IModelUniform, ITexture2D } from '@antv/l7-core';
+import { AttributeType, gl } from '@antv/l7-core';
 import BaseModel from '../../core/BaseModel';
 import type { IGeometryLayerStyleOptions } from '../../core/interface';
 import planeFrag from '../shaders/billboard_frag.glsl';
 import planeVert from '../shaders/billboard_vert.glsl';
-import { ShaderLocation } from '../../core/CommonStyleAttribute';
 
 export default class BillBoardModel extends BaseModel {
+  protected get attributeLocation() {
+    return Object.assign(super.attributeLocation, {
+      MAX: super.attributeLocation.MAX,
+      EXTRUDE: 9,
+      UV: 10,
+    });
+  }
+
   protected texture: ITexture2D;
   private radian: number = 0; // 旋转的弧度
 
   public planeGeometryTriangulation = () => {
-    const { center = [120, 30] } =
-      this.layer.getLayerConfig() as IGeometryLayerStyleOptions;
+    const { center = [120, 30] } = this.layer.getLayerConfig() as IGeometryLayerStyleOptions;
     return {
       size: 4,
       indices: [0, 1, 2, 2, 3, 0],
@@ -43,11 +42,13 @@ export default class BillBoardModel extends BaseModel {
     return {
       ...commoninfo.uniformsOption,
       ...attributeInfo.uniformsOption,
-    }
-
+    };
   }
-  protected getCommonUniformsInfo(): { uniformsArray: number[]; uniformsLength: number; uniformsOption: { [key: string]: any } } {
-
+  protected getCommonUniformsInfo(): {
+    uniformsArray: number[];
+    uniformsLength: number;
+    uniformsOption: { [key: string]: any };
+  } {
     const {
       opacity,
       width = 1,
@@ -58,20 +59,15 @@ export default class BillBoardModel extends BaseModel {
     /**
      *               rotateFlag
      * DEFAULT            1
-     * MAPBOX           1
-     * GAODE2.x         -1
-     * GAODE1.x         -1
+     * MAPBOX             1
+     * AMAP              -1
      */
     let rotateFlag = 1;
-    if (
-      this.mapService.version === 'GAODE2.x' ||
-      this.mapService.version === 'GAODE1.x'
-    ) {
+    if (this.mapService.getType() === 'amap') {
       rotateFlag = -1;
     }
     // 控制图标的旋转角度（绕 Z 轴旋转）
-    this.radian =
-      (rotateFlag * Math.PI * (this.mapService.getRotation() % 360)) / 180;
+    this.radian = (rotateFlag * Math.PI * (this.mapService.getRotation() % 360)) / 180;
 
     const commonOptions = {
       u_size: [width, height],
@@ -90,8 +86,7 @@ export default class BillBoardModel extends BaseModel {
   }
 
   public async initModels(): Promise<IModel[]> {
-    const { drawCanvas } =
-      this.layer.getLayerConfig() as IGeometryLayerStyleOptions;
+    const { drawCanvas } = this.layer.getLayerConfig() as IGeometryLayerStyleOptions;
 
     const { createTexture2D } = this.rendererService;
     this.texture = createTexture2D({
@@ -101,13 +96,14 @@ export default class BillBoardModel extends BaseModel {
 
     if (drawCanvas) {
       this.updateTexture(drawCanvas);
-      }
-      this.initUniformsBuffer();
-      const model = await this.layer.buildLayerModel({
+    }
+    this.initUniformsBuffer();
+    const model = await this.layer.buildLayerModel({
       moduleName: 'geometryBillboard',
       vertexShader: planeVert,
       fragmentShader: planeFrag,
       triangulation: this.planeGeometryTriangulation,
+      defines: this.getDefines(),
       inject: this.getInject(),
       primitive: gl.TRIANGLES,
       depth: { enable: true },
@@ -147,7 +143,7 @@ export default class BillBoardModel extends BaseModel {
       type: AttributeType.Attribute,
       descriptor: {
         name: 'a_Extrude',
-        shaderLocation: ShaderLocation.EXTRUDE,
+        shaderLocation: this.attributeLocation.EXTRUDE,
         buffer: {
           usage: gl.DYNAMIC_DRAW,
           data: [],
@@ -162,11 +158,7 @@ export default class BillBoardModel extends BaseModel {
         ) => {
           const extrude = [1, 1, 0, -1, 1, 0, -1, -1, 0, 1, -1, 0];
           const extrudeIndex = (attributeIdx % 4) * 3;
-          return [
-            extrude[extrudeIndex],
-            extrude[extrudeIndex + 1],
-            extrude[extrudeIndex + 2],
-          ];
+          return [extrude[extrudeIndex], extrude[extrudeIndex + 1], extrude[extrudeIndex + 2]];
         },
       },
     });
@@ -175,18 +167,14 @@ export default class BillBoardModel extends BaseModel {
       type: AttributeType.Attribute,
       descriptor: {
         name: 'a_Uv',
-        shaderLocation: ShaderLocation.UV,
+        shaderLocation: this.attributeLocation.UV,
         buffer: {
           usage: gl.DYNAMIC_DRAW,
           data: [],
           type: gl.FLOAT,
         },
         size: 2,
-        update: (
-          feature: IEncodeFeature,
-          featureIdx: number,
-          vertex: number[],
-        ) => {
+        update: (feature: IEncodeFeature, featureIdx: number, vertex: number[]) => {
           return [vertex[2], vertex[3]];
         },
       },

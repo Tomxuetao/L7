@@ -32,7 +32,7 @@ export default class Swipe extends Control<ISwipeControlOption> {
    */
   private isMoving: boolean = false;
   /**
-   * 掩膜图层实例
+   * 掩模图层实例
    */
   private maskLayer: ILayer;
 
@@ -94,13 +94,12 @@ export default class Swipe extends Control<ISwipeControlOption> {
 
     this.registerEvent();
 
-
-    // 添加掩膜图层到 scene
+    // 添加掩模图层到 scene
     const layerContainer = createLayerContainer(sceneContainer);
     this.maskLayer.setContainer(layerContainer);
     this.scene.addLayer(this.maskLayer);
 
-    // 给图层挂载掩膜
+    // 给图层挂载掩模
     this.addMaskToLayers(layers, false);
     this.addMaskToLayers(rightLayers, true);
     this.emit('add', this);
@@ -121,7 +120,7 @@ export default class Swipe extends Control<ISwipeControlOption> {
   public show() {
     const container = this.container;
     DOM.removeClass(container, 'l7-control-swipe_hide');
-    // 启用掩膜
+    // 启用掩模
     const { layers, rightLayers } = this.controlOption;
     layers.forEach((layer) => layer.enableMask());
     rightLayers.forEach((layer) => layer.enableMask());
@@ -133,7 +132,7 @@ export default class Swipe extends Control<ISwipeControlOption> {
   public hide() {
     const container = this.container;
     DOM.addClass(container, 'l7-control-swipe_hide');
-    // 禁用掩膜
+    // 禁用掩模
     const { layers, rightLayers } = this.controlOption;
     layers.forEach((layer) => layer.disableMask());
     rightLayers.forEach((layer) => layer.disableMask());
@@ -157,10 +156,7 @@ export default class Swipe extends Control<ISwipeControlOption> {
     }
 
     if (newOptions.orientation || newOptions.ratio !== undefined) {
-      this.setOrientationAndRatio(
-        controlOption.orientation,
-        controlOption.ratio,
-      );
+      this.setOrientationAndRatio(controlOption.orientation, controlOption.ratio);
     }
 
     if (newOptions.layers) {
@@ -209,17 +205,9 @@ export default class Swipe extends Control<ISwipeControlOption> {
     }
   }
 
-  private setLayers(
-    newLayers: ILayer[],
-    oldLayers: ILayer[],
-    isRightLayer = false,
-  ) {
-    const addLayers = newLayers.filter(
-      (layer) => oldLayers.includes(layer) === false,
-    );
-    const removeLayers = oldLayers.filter(
-      (layer) => newLayers.includes(layer) === false,
-    );
+  private setLayers(newLayers: ILayer[], oldLayers: ILayer[], isRightLayer = false) {
+    const addLayers = newLayers.filter((layer) => oldLayers.includes(layer) === false);
+    const removeLayers = oldLayers.filter((layer) => newLayers.includes(layer) === false);
 
     this.addMaskToLayers(addLayers, isRightLayer);
     this.removeMaskFromLayers(removeLayers);
@@ -253,34 +241,22 @@ export default class Swipe extends Control<ISwipeControlOption> {
       case 'touchend':
       case 'mouseup': {
         this.isMoving = false;
-        (
-          [
-            'mouseup',
-            'mousemove',
-            'touchend',
-            'touchcancel',
-            'touchmove',
-          ] as const
-        ).forEach((eventName) => {
-          document.removeEventListener(eventName, this.move);
-        });
+        (['mouseup', 'mousemove', 'touchend', 'touchcancel', 'touchmove'] as const).forEach(
+          (eventName) => {
+            document.removeEventListener(eventName, this.move);
+          },
+        );
         this.scene?.render();
         break;
       }
       case 'mousedown':
       case 'touchstart': {
         this.isMoving = true;
-        (
-          [
-            'mouseup',
-            'mousemove',
-            'touchend',
-            'touchcancel',
-            'touchmove',
-          ] as const
-        ).forEach((eventName) => {
-          document.addEventListener(eventName, this.move);
-        });
+        (['mouseup', 'mousemove', 'touchend', 'touchcancel', 'touchmove'] as const).forEach(
+          (eventName) => {
+            document.addEventListener(eventName, this.move);
+          },
+        );
         // fallthrough
       }
       case 'mousemove':
@@ -306,13 +282,9 @@ export default class Swipe extends Control<ISwipeControlOption> {
             const containerWidth = containerSize[0];
             const containerRectLeft = containerRect?.left || 0;
             const offsetX =
-              pageX -
-              containerRectLeft +
-              window.scrollX -
-              document.documentElement.clientLeft;
+              pageX - containerRectLeft + window.scrollX - document.documentElement.clientLeft;
             const width =
-              containerWidth -
-              Math.min(Math.max(0, containerWidth - offsetX), containerWidth);
+              containerWidth - Math.min(Math.max(0, containerWidth - offsetX), containerWidth);
 
             const ratio = width / containerWidth;
 
@@ -340,13 +312,9 @@ export default class Swipe extends Control<ISwipeControlOption> {
             const containerHeight = containerSize[1];
             const containerRectLeft = containerRect?.top || 0;
             const offsetY =
-              pageY -
-              containerRectLeft +
-              window.scrollY -
-              document.documentElement.clientTop;
+              pageY - containerRectLeft + window.scrollY - document.documentElement.clientTop;
             const height =
-              containerHeight -
-              Math.min(Math.max(0, containerHeight - offsetY), containerHeight);
+              containerHeight - Math.min(Math.max(0, containerHeight - offsetY), containerHeight);
             const ratio = height / containerHeight;
 
             this.setOptions({ ratio });
@@ -373,27 +341,12 @@ export default class Swipe extends Control<ISwipeControlOption> {
     let coordinate: number[][];
     if (isVertical) {
       const centerLng = swLng + (neLng - swLng) * ratio;
-      coordinate = [
-        [swLng, neLat],
-        [centerLng, neLat],
-        [centerLng, swLat],
-        sw,
-        [swLng, neLat],
-      ];
+      coordinate = [[swLng, neLat], [centerLng, neLat], [centerLng, swLat], sw, [swLng, neLat]];
     } else {
       const size = this.getContainerSize();
-      const lngLat = this.mapsService.containerToLngLat([
-        size[0],
-        size[1] * ratio,
-      ]);
+      const lngLat = this.mapsService.containerToLngLat([size[0], size[1] * ratio]);
       const centerLat = lngLat.lat;
-      coordinate = [
-        [swLng, neLat],
-        ne,
-        [neLng, centerLat],
-        [swLng, centerLat],
-        [swLng, neLat],
-      ];
+      coordinate = [[swLng, neLat], ne, [neLng, centerLat], [swLng, centerLat], [swLng, neLat]];
     }
 
     const geoJSON = {
@@ -414,8 +367,8 @@ export default class Swipe extends Control<ISwipeControlOption> {
   }
 
   private getMaskLayer = () => {
-    console.log(this.getMaskGeoData())
-    
+    console.log(this.getMaskGeoData());
+
     return new PolygonLayer({
       visible: false,
     })
@@ -471,12 +424,8 @@ export default class Swipe extends Control<ISwipeControlOption> {
    */
   public removeLayer(layer: ILayer | ILayer[]) {
     const layers = Array.isArray(layer) ? layer : [layer];
-    const leftLayers = this.controlOption.layers.filter((layer) =>
-      layers.includes(layer),
-    );
-    const rightLayers = this.controlOption.rightLayers.filter((layer) =>
-      layers.includes(layer),
-    );
+    const leftLayers = this.controlOption.layers.filter((layer) => layers.includes(layer));
+    const rightLayers = this.controlOption.rightLayers.filter((layer) => layers.includes(layer));
 
     this.setOptions({ layers: leftLayers, rightLayers });
   }

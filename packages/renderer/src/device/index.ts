@@ -1,9 +1,4 @@
-import type {
-  Device,
-  RenderPass,
-  RenderTarget,
-  SwapChain,
-} from '@antv/g-device-api';
+import type { Device, RenderPass, RenderTarget, SwapChain } from '@antv/g-device-api';
 import {
   Format,
   TextureUsage,
@@ -78,12 +73,11 @@ export default class DeviceRendererService implements IRendererService {
   private viewportOrigin: ViewportOrigin;
 
   async init(canvas: HTMLCanvasElement, cfg: IRenderConfig): Promise<void> {
-    const { enableWebGPU, shaderCompilerPath } = cfg;
+    const { enableWebGPU, shaderCompilerPath, antialias } = cfg;
 
     // this.$container = $container;
     this.canvas = canvas;
 
-    // TODO: use antialias from cfg
     const deviceContribution = enableWebGPU
       ? new WebGPUDeviceContribution({
           shaderCompilerPath,
@@ -91,6 +85,7 @@ export default class DeviceRendererService implements IRendererService {
       : new WebGLDeviceContribution({
           // Use WebGL2 first and downgrade to WebGL1 if WebGL2 is not supported.
           targets: ['webgl2', 'webgl1'],
+          antialias,
           onContextLost(e) {
             console.warn('context lost', e);
           },
@@ -159,9 +154,7 @@ export default class DeviceRendererService implements IRendererService {
     const colorAttachment = currentFramebuffer
       ? currentFramebuffer['colorRenderTarget']
       : mainColorRT;
-    const colorResolveTo = currentFramebuffer
-      ? null
-      : swapChain.getOnscreenTexture();
+    const colorResolveTo = currentFramebuffer ? null : swapChain.getOnscreenTexture();
     const depthStencilAttachment = currentFramebuffer
       ? currentFramebuffer['depthRenderTarget']
       : mainDepthRT;
@@ -171,12 +164,7 @@ export default class DeviceRendererService implements IRendererService {
       currentFramebuffer?.clearOptions || {};
 
     const colorClearColor = colorAttachment
-      ? colorNewFromRGBA(
-          color[0] * 255,
-          color[1] * 255,
-          color[2] * 255,
-          color[3],
-        )
+      ? colorNewFromRGBA(color[0] * 255, color[1] * 255, color[2] * 255, color[3])
       : TransparentBlack;
     const depthClearValue = depthStencilAttachment ? depth : undefined;
     const stencilClearValue = depthStencilAttachment ? stencil : undefined;
@@ -229,10 +217,7 @@ export default class DeviceRendererService implements IRendererService {
   createFramebuffer = (options: IFramebufferInitializationOptions) =>
     new DeviceFramebuffer(this.device, options);
 
-  useFramebuffer = (
-    framebuffer: IFramebuffer | null,
-    drawCommands: () => void,
-  ) => {
+  useFramebuffer = (framebuffer: IFramebuffer | null, drawCommands: () => void) => {
     this.currentFramebuffer = framebuffer as DeviceFramebuffer;
     this.beginFrame();
     drawCommands();
@@ -317,7 +302,19 @@ export default class DeviceRendererService implements IRendererService {
       height,
       new Uint8Array(width * height * 4),
     ) as Uint8Array;
+
+    // Since we use U8_RGBA_RT format in render target, need to change bgranorm -> rgba here.
+    if (this.viewportOrigin !== ViewportOrigin.LOWER_LEFT) {
+      for (let j = 0; j < result.length; j += 4) {
+        // Switch b and r components.
+        const t = result[j];
+        result[j] = result[j + 2];
+        result[j + 2] = t;
+      }
+    }
+
     readback.destroy();
+
     return result;
   };
 

@@ -11,6 +11,8 @@ import BaseNormalPass from './BaseNormalPass';
 /**
  * color-based PixelPickingPass
  * @see https://github.com/antvis/L7/blob/next/dev-docs/PixelPickingEngine.md
+ * @deprecated
+ * 目前未使用
  */
 export default class PixelPickingPass<
   InitializationOptions = {},
@@ -45,8 +47,7 @@ export default class PixelPickingPass<
   public init(layer: ILayer, config?: Partial<InitializationOptions>) {
     super.init(layer, config);
     this.layer = layer;
-    const { createTexture2D, createFramebuffer, getViewportSize } =
-      this.rendererService;
+    const { createTexture2D, createFramebuffer, getViewportSize } = this.rendererService;
     const { width, height } = getViewportSize();
     // 创建 picking framebuffer，后续实时 resize
     const pickingColorTexture = createTexture2D({
@@ -62,14 +63,8 @@ export default class PixelPickingPass<
 
     // 监听 hover 事件
     this.interactionService.on(InteractionEvent.Hover, this.pickFromPickingFBO);
-    this.interactionService.on(
-      InteractionEvent.Select,
-      this.selectFeatureHandle.bind(this),
-    );
-    this.interactionService.on(
-      InteractionEvent.Active,
-      this.highlightFeatureHandle.bind(this),
-    );
+    this.interactionService.on(InteractionEvent.Select, this.selectFeatureHandle.bind(this));
+    this.interactionService.on(InteractionEvent.Active, this.highlightFeatureHandle.bind(this));
   }
 
   public render(layer: ILayer) {
@@ -123,8 +118,7 @@ export default class PixelPickingPass<
     if (!this.layer.isVisible() || !this.layer.needPick(type)) {
       return;
     }
-    const { getViewportSize, readPixelsAsync, useFramebuffer } =
-      this.rendererService;
+    const { getViewportSize, readPixelsAsync, useFramebuffer } = this.rendererService;
     const { width, height } = getViewportSize();
     const { enableHighlight, enableSelect } = this.layer.getLayerConfig();
 
@@ -151,15 +145,9 @@ export default class PixelPickingPass<
         framebuffer: this.pickingFBO,
       });
 
-      if (
-        pickedColors[0] !== 0 ||
-        pickedColors[1] !== 0 ||
-        pickedColors[2] !== 0
-      ) {
+      if (pickedColors[0] !== 0 || pickedColors[1] !== 0 || pickedColors[2] !== 0) {
         const pickedFeatureIdx = decodePickingColor(pickedColors);
-        const rawFeature = this.layer
-          .getSource()
-          .getFeatureById(pickedFeatureIdx);
+        const rawFeature = this.layer.getSource().getFeatureById(pickedFeatureIdx);
         const target = {
           x,
           y,
@@ -182,8 +170,7 @@ export default class PixelPickingPass<
           x,
           y,
           lngLat,
-          type:
-            this.layer.getCurrentPickId() === null ? 'un' + type : 'mouseout',
+          type: this.layer.getCurrentPickId() === null ? 'un' + type : 'mouseout',
           featureId: null,
           feature: null,
         };

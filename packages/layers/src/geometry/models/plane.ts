@@ -1,21 +1,18 @@
-import type {
-  IAttributeAndElements,
-  IEncodeFeature,
-  IModel,
-  IModelUniform,
-  ITexture2D} from '@antv/l7-core';
-import {
-  AttributeType,
-  gl
-} from '@antv/l7-core';
-// import { mat4, vec3 } from 'gl-matrix';
+import type { IEncodeFeature, IModel, IModelUniform, ITexture2D } from '@antv/l7-core';
+import { AttributeType, gl } from '@antv/l7-core';
 import BaseModel from '../../core/BaseModel';
 import type { IGeometryLayerStyleOptions } from '../../core/interface';
 import planeFrag from '../shaders/plane_frag.glsl';
 import planeVert from '../shaders/plane_vert.glsl';
-import { ShaderLocation } from '../../core/CommonStyleAttribute';
 
 export default class PlaneModel extends BaseModel {
+  protected get attributeLocation() {
+    return Object.assign(super.attributeLocation, {
+      MAX: super.attributeLocation.MAX,
+      UV: 10,
+    });
+  }
+
   protected texture: ITexture2D;
   protected terrainImage: HTMLImageElement;
   protected terrainImageLoaded: boolean = false;
@@ -50,17 +47,7 @@ export default class PlaneModel extends BaseModel {
 
       for (let ix = 0; ix < gridX1; ix++) {
         const x = ix * segmentWidth - widthHalf;
-        if (this.mapService.version === 'GAODE2.x') {
-          // @ts-ignore
-          const [a, b] = this.mapService.lngLatToCoord([x + lng, -y + lat]) as [
-            number,
-            number,
-          ];
-          positions.push(a, b, 0);
-        } else {
-          positions.push(x + lng, -y + lat, 0);
-        }
-
+        positions.push(x + lng, -y + lat, 0);
         positions.push(ix / gridX);
         positions.push(1 - iy / gridY);
       }
@@ -89,6 +76,7 @@ export default class PlaneModel extends BaseModel {
       heightSegments = 1,
       center = [120, 30],
       terrainTexture,
+      rgb2height = (r: number, g: number, b: number) => r + g + b,
     } = this.layer.getLayerConfig() as IGeometryLayerStyleOptions;
     const { indices, positions } = this.initPlane(
       width,
@@ -99,7 +87,14 @@ export default class PlaneModel extends BaseModel {
     );
     if (terrainTexture) {
       // 存在地形贴图的时候会根据地形贴图对顶点进行偏移
-      this.loadTerrainTexture(positions, indices);
+      return this.translateVertex(
+        positions,
+        indices,
+        this.terrainImage,
+        widthSegments,
+        heightSegments,
+        rgb2height,
+      );
     }
 
     return {
@@ -116,10 +111,13 @@ export default class PlaneModel extends BaseModel {
     return {
       ...commoninfo.uniformsOption,
       ...attributeInfo.uniformsOption,
-    }
-
+    };
   }
-  protected getCommonUniformsInfo(): { uniformsArray: number[]; uniformsLength: number; uniformsOption: { [key: string]: any } } {
+  protected getCommonUniformsInfo(): {
+    uniformsArray: number[];
+    uniformsLength: number;
+    uniformsOption: { [key: string]: any };
+  } {
     const {
       opacity,
       mapTexture,
@@ -131,13 +129,13 @@ export default class PlaneModel extends BaseModel {
       this.texture?.destroy();
       this.updateTexture(mapTexture);
     }
-    const commonOptions =  {
+    const commonOptions = {
       u_opacity: opacity || 1,
       u_mapFlag: mapTexture ? 1 : 0,
       u_terrainClipHeight: terrainTexture ? terrainClipHeight : -1,
       u_texture: this.texture,
     };
-    this.textures=[this.texture];
+    this.textures = [this.texture];
     const commonBufferInfo = this.getUniformsBufferInfo(commonOptions);
     return commonBufferInfo;
   }
@@ -146,11 +144,11 @@ export default class PlaneModel extends BaseModel {
     // @ts-ignore
     this.terrainImage = null;
     this.texture?.destroy();
-    this.textures=[];
+    this.textures = [];
   }
 
   public async initModels(): Promise<IModel[]> {
-    const { mapTexture } =
+    const { mapTexture, terrainTexture } =
       this.layer.getLayerConfig() as IGeometryLayerStyleOptions;
     this.mapTexture = mapTexture;
 
@@ -163,12 +161,17 @@ export default class PlaneModel extends BaseModel {
     this.updateTexture(mapTexture);
     this.initUniformsBuffer();
 
+    if (terrainTexture) {
+      this.terrainImage = await this.loadTerrainImage(terrainTexture);
+    }
+
     const model = await this.layer.buildLayerModel({
       moduleName: 'geometryPlane',
       vertexShader: planeVert,
       fragmentShader: planeFrag,
       triangulation: this.planeGeometryTriangulation,
-      inject:this.getInject(),
+      defines: this.getDefines(),
+      inject: this.getInject(),
       primitive: gl.TRIANGLES,
       depth: { enable: true },
 
@@ -195,10 +198,8 @@ export default class PlaneModel extends BaseModel {
       const { widthSegments, heightSegments, width, height } =
         options as IGeometryLayerStyleOptions;
       this.layer.style({
-        widthSegments:
-          widthSegments !== undefined ? widthSegments : oldwidthSegments,
-        heightSegments:
-          heightSegments !== undefined ? heightSegments : oldheightSegments,
+        widthSegments: widthSegments !== undefined ? widthSegments : oldwidthSegments,
+        heightSegments: heightSegments !== undefined ? heightSegments : oldheightSegments,
         width: width !== undefined ? width : oldwidth,
         height: height !== undefined ? height : oldheight,
       });
@@ -287,73 +288,38 @@ export default class PlaneModel extends BaseModel {
       }
     }
 
-    const oldFeatures = this.layer.getEncodedData();
-    const modelData = this.styleAttributeService.createAttributesAndIndices(
-      oldFeatures,
-      () => {
-        return {
-          vertices: positions,
-          indices,
-          size: 5,
-        };
-      },
-    );
-    this.layer.updateModelData(modelData as IAttributeAndElements);
-    this.layerService.throttleRenderLayers();
+    return {
+      vertices: positions,
+      indices,
+      size: 5,
+    };
   }
 
-  /**
-   * load terrain texture & offset attribute z
-   */
-  protected loadTerrainTexture(positions: number[], indices: number[]) {
-    const {
-      widthSegments = 1,
-      heightSegments = 1,
-      terrainTexture,
-      rgb2height = (r: number, g: number, b: number) => r + g + b,
-    } = this.layer.getLayerConfig() as IGeometryLayerStyleOptions;
+  private async loadTerrainImage(terrainTexture: string) {
     if (this.terrainImage) {
       // 若当前已经存在 image，直接进行偏移计算（LOD）
       if (this.terrainImageLoaded) {
-        this.translateVertex(
-          positions,
-          indices,
-          this.terrainImage,
-          widthSegments,
-          heightSegments,
-          rgb2height,
-        );
+        return this.terrainImage;
       } else {
-        this.terrainImage.onload = () => {
-          this.translateVertex(
-            positions,
-            indices,
-            this.terrainImage,
-            widthSegments,
-            heightSegments,
-            rgb2height,
-          );
-        };
+        return new Promise<HTMLImageElement>((resolve) => {
+          this.terrainImage.onload = () => {
+            resolve(this.terrainImage);
+          };
+        });
       }
     } else {
       // 加载地形贴图、根据地形贴图对 planeGeometry 进行偏移
       const terrainImage = new Image();
-      this.terrainImage = terrainImage;
       terrainImage.crossOrigin = 'anonymous';
-      terrainImage.onload = () => {
-        this.terrainImageLoaded = true;
-        // 图片加载完，触发事件，可以进行地形图的顶点计算存储
-        setTimeout(() => this.layer.emit('terrainImageLoaded', null));
-        this.translateVertex(
-          positions,
-          indices,
-          terrainImage,
-          widthSegments,
-          heightSegments,
-          rgb2height,
-        );
-      };
-      terrainImage.src = terrainTexture as string;
+      return new Promise<HTMLImageElement>((resolve) => {
+        terrainImage.onload = () => {
+          this.terrainImageLoaded = true;
+          resolve(terrainImage);
+          // 图片加载完，触发事件，可以进行地形图的顶点计算存储
+          setTimeout(() => this.layer.emit('terrainImageLoaded', null));
+        };
+        terrainImage.src = terrainTexture as string;
+      });
     }
   }
 
@@ -364,7 +330,7 @@ export default class PlaneModel extends BaseModel {
       type: AttributeType.Attribute,
       descriptor: {
         name: 'a_Uv',
-        shaderLocation:ShaderLocation.UV,
+        shaderLocation: this.attributeLocation.UV,
         buffer: {
           // give the WebGL driver a hint that this buffer may change
           usage: gl.DYNAMIC_DRAW,
@@ -372,11 +338,7 @@ export default class PlaneModel extends BaseModel {
           type: gl.FLOAT,
         },
         size: 2,
-        update: (
-          feature: IEncodeFeature,
-          featureIdx: number,
-          vertex: number[],
-        ) => {
+        update: (feature: IEncodeFeature, featureIdx: number, vertex: number[]) => {
           return [vertex[3], vertex[4]];
         },
       },

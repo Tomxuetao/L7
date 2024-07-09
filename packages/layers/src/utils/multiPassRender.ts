@@ -3,9 +3,7 @@ import type { ILayer, IPass, IPostProcessingPass } from '@antv/l7-core';
 /**
  * 'blurH' -> ['blurH', {}]
  */
-export function normalizePasses(
-  passes: Array<string | [string, { [key: string]: unknown }]>,
-) {
+export function normalizePasses(passes: Array<string | [string, { [key: string]: unknown }]>) {
   return passes.map((pass: string | [string, { [key: string]: unknown }]) => {
     if (typeof pass === 'string') {
       pass = [pass, {}];
@@ -25,31 +23,20 @@ export function createMultiPassRenderer(
   normalPassFactory: (name: string) => IPass<unknown>,
 ) {
   const multiPassRenderer = layer.multiPassRenderer;
-  const { enableTAA } = layer.getLayerConfig();
 
   // picking pass if enabled
   // if (enablePicking) {
   //   multiPassRenderer.add(normalPassFactory('pixelPicking'));
   // }
 
-  // use TAA pass if enabled instead of render pass
-  if (enableTAA) {
-    multiPassRenderer.add(normalPassFactory('taa'));
-  } else {
-    // render all layers in this pass
-    multiPassRenderer.add(normalPassFactory('render'));
-  }
+  // render all layers in this pass
+  multiPassRenderer.add(normalPassFactory('render'));
 
   // post processing
-  normalizePasses(passes).forEach(
-    (pass: [string, { [key: string]: unknown }]) => {
-      const [passName, initializationOptions] = pass;
-      multiPassRenderer.add(
-        postProcessingPassFactory(passName),
-        initializationOptions,
-      );
-    },
-  );
+  normalizePasses(passes).forEach((pass: [string, { [key: string]: unknown }]) => {
+    const [passName, initializationOptions] = pass;
+    multiPassRenderer.add(postProcessingPassFactory(passName), initializationOptions);
+  });
 
   // 末尾为固定的 CopyPass
   multiPassRenderer.add(postProcessingPassFactory('copy'));

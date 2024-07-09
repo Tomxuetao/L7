@@ -1,9 +1,9 @@
 {
   "name": "@antv/l7-layers",
-  "version": "2.21.1",
+  "version": "2.22.0",
   "description": "L7's collection of built-in layers",
-  "license": "ISC",
-  "author": "xiaoiver",
+  "license": "MIT",
+  "author": "https://github.com/orgs/antvis/people",
   "sideEffects": [
     "./es/index.js"
   ],
@@ -11,26 +11,22 @@
   "module": "es/index.js",
   "types": "es/index.d.ts",
   "files": [
-    "dist",
     "lib",
-    "es",
-    "README.md"
+    "es"
   ],
   "scripts": {
-    "build": "father build",
-    "build:cjs": "BABEL_ENV=cjs babel src --root-mode upward --out-dir lib --source-maps --extensions .ts,.tsx --delete-dir-on-start --no-comments",
-    "build:esm": "BABEL_ENV=esm babel src --root-mode upward --out-dir es --source-maps --extensions .ts,.tsx --delete-dir-on-start --no-comments",
-    "clean": "rimraf dist; rimraf es; rimraf lib;",
-    "sync": "tnpm sync",
-    "tsc": "tsc --project tsconfig.build.json",
-    "watch": "BABEL_ENV=cjs babel src --watch --root-mode upward --out-dir lib --source-maps --extensions .ts,.tsx --delete-dir-on-start --no-comments"
+    "dev": "father dev",
+    "build": "npm run clean && father build",
+    "check-deps": "father doctor",
+    "lint": "eslint src __tests__",
+    "clean": "rimraf dist es lib"
   },
   "dependencies": {
     "@antv/async-hook": "^2.2.9",
-    "@antv/l7-core": "2.21.1",
-    "@antv/l7-maps": "2.21.1",
-    "@antv/l7-source": "2.21.1",
-    "@antv/l7-utils": "2.21.1",
+    "@antv/l7-core": "workspace:*",
+    "@antv/l7-maps": "workspace:*",
+    "@antv/l7-source": "workspace:*",
+    "@antv/l7-utils": "workspace:*",
     "@babel/runtime": "^7.7.7",
     "@mapbox/martini": "^0.2.0",
     "@turf/clone": "^6.5.0",
@@ -38,10 +34,10 @@
     "@turf/meta": "^6.0.2",
     "@turf/polygon-to-line": "^6.5.0",
     "@turf/union": "^6.5.0",
-    "d3-array": "1",
+    "d3-array": "^2",
     "d3-color": "^1.4.0",
     "d3-interpolate": "1.4.0",
-    "d3-scale": "2",
+    "d3-scale": "^2",
     "earcut": "^2.2.1",
     "eventemitter3": "^4.0.0",
     "extrude-polyline": "^1.0.6",
@@ -50,17 +46,17 @@
     "polyline-miter-util": "^1.0.1"
   },
   "devDependencies": {
-    "@antv/l7-test-utils": "2.21.1",
-    "@types/d3-array": "^2.0.0",
+    "@antv/l7-test-utils": "workspace:^",
+    "@types/d3-array": "^2",
     "@types/d3-color": "^1.2.2",
     "@types/d3-interpolate": "1.1.6",
     "@types/d3-scale": "^2.1.1",
     "@types/earcut": "^2.1.0",
-    "@types/gl-matrix": "^2.4.5",
-    "@types/lodash": "^4.14.138"
+    "@types/gl-matrix": "^2.4.5"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
   },
-  "gitHead": "edc5dca4af25650507d1b3b3a649bf6c0cb6089d"
+  "repository": "git@github.com:antvis/L7.git"
 }

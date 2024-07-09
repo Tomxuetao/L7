@@ -5,22 +5,18 @@ import type { IMercator } from '@antv/l7-core';
 import { mat4, vec3 } from 'gl-matrix';
 import type { Map } from 'mapbox-gl';
 import mapboxgl from 'mapbox-gl';
-// tslint:disable-next-line:no-submodule-imports
 import 'mapbox-gl/dist/mapbox-gl.css';
-import type { IMapboxInstance } from '../../typings/index';
+import Viewport from '../lib/web-mercator-viewport';
+import type { IMapboxInstance } from '../types';
 import BaseMapService from '../utils/BaseMapService';
-import Viewport from './Viewport';
 window.mapboxgl = mapboxgl;
 
 let mapdivCount = 0;
 const MAPBOX_API_KEY =
   '101MlGsZ2AmmA&access_token=pk.eyJ1IjoiZXhhbXBsZXMiLCJhIjoiY2p0MG01MXRqMW45cjQzb2R6b2ptc3J4MSJ9.zA2W0IkI0c6KaAhJfk9bWg';
-/**
- * AMapService
- */
-export default class MapboxService extends BaseMapService<
-  Map & IMapboxInstance
-> {
+
+// TODO: 基于抽象类 BaseMap 实现
+export default class MapboxService extends BaseMapService<Map & IMapboxInstance> {
   public version: string = 'MAPBOX';
   // get mapStatus method
 
@@ -35,24 +31,14 @@ export default class MapboxService extends BaseMapService<
    * @param lnglat
    * @returns
    */
-  public lngLatToCoord(
-    lnglat: [number, number],
-    origin: IMercator = { x: 0, y: 0, z: 0 },
-  ) {
+  public lngLatToCoord(lnglat: [number, number], origin: IMercator = { x: 0, y: 0, z: 0 }) {
     // @ts-ignore
     const { x, y } = this.lngLatToMercator(lnglat, 0);
     return [x - origin.x, y - origin.y] as [number, number];
   }
 
-  public lngLatToMercator(
-    lnglat: [number, number],
-    altitude: number,
-  ): IMercator {
-    const {
-      x = 0,
-      y = 0,
-      z = 0,
-    } = window.mapboxgl.MercatorCoordinate.fromLngLat(lnglat, altitude);
+  public lngLatToMercator(lnglat: [number, number], altitude: number): IMercator {
+    const { x = 0, y = 0, z = 0 } = window.mapboxgl.MercatorCoordinate.fromLngLat(lnglat, altitude);
     return { x, y, z };
   }
   public getModelMatrix(
@@ -62,8 +48,10 @@ export default class MapboxService extends BaseMapService<
     scale: [number, number, number] = [1, 1, 1],
     origin: IMercator = { x: 0, y: 0, z: 0 },
   ): number[] {
-    const modelAsMercatorCoordinate =
-      window.mapboxgl.MercatorCoordinate.fromLngLat(lnglat, altitude);
+    const modelAsMercatorCoordinate = window.mapboxgl.MercatorCoordinate.fromLngLat(
+      lnglat,
+      altitude,
+    );
     // @ts-ignore
     const meters = modelAsMercatorCoordinate.meterInMercatorCoordinateUnits();
     const modelMatrix = mat4.create();
@@ -200,8 +188,7 @@ export default class MapboxService extends BaseMapService<
     const { x: x1, y: y1 } = centerMercator;
     const { x: x2, y: y2 } = outerMercator;
     // Math.pow(2, 22) 4194304
-    const coordDis =
-      Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2)) * 4194304 * 2;
+    const coordDis = Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2)) * 4194304 * 2;
 
     return coordDis / meterDis;
   }

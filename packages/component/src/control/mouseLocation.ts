@@ -1,4 +1,4 @@
-import type { ILngLat, Position} from '@antv/l7-core';
+import type { ILngLat, Position } from '@antv/l7-core';
 import { PositionType } from '@antv/l7-core';
 import { DOM } from '@antv/l7-utils';
 import type { IControlOption } from './baseControl/control';
@@ -17,9 +17,7 @@ export default class MouseLocation extends Control<IMouseLocationControlOption> 
     return this.location;
   }
 
-  public getDefault(
-    option?: Partial<IMouseLocationControlOption>,
-  ): IMouseLocationControlOption {
+  public getDefault(option?: Partial<IMouseLocationControlOption>): IMouseLocationControlOption {
     return {
       ...super.getDefault(option),
       position: PositionType.BOTTOMLEFT,
@@ -41,6 +39,7 @@ export default class MouseLocation extends Control<IMouseLocationControlOption> 
   }
   protected onMouseMove = (e: any) => {
     let position: Position = this.location;
+    // 适配不同底图，事件返回的数据名称不一致
     const lngLat: ILngLat | undefined = e.lngLat || e.lnglat;
     const { transform } = this.controlOption;
     if (lngLat) {

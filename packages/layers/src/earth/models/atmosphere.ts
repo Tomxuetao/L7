@@ -1,26 +1,32 @@
-import type {
-  IEncodeFeature,
-  IModel} from '@antv/l7-core';
-import {
-  AttributeType,
-  gl
-} from '@antv/l7-core';
+import type { IEncodeFeature, IModel } from '@antv/l7-core';
+import { AttributeType, gl } from '@antv/l7-core';
 import { lodashUtil } from '@antv/l7-utils';
 import BaseModel from '../../core/BaseModel';
 import { earthTriangulation } from '../../core/triangulation';
 import atmoSphereFrag from '../shaders/atmosphere/atmosphere_frag.glsl';
 import atmoSphereVert from '../shaders/atmosphere/atmosphere_vert.glsl';
-import { ShaderLocation } from '../../core/CommonStyleAttribute';
+
 interface IAtmoSphereLayerStyleOptions {
   opacity: number;
 }
 const { isNumber } = lodashUtil;
 
 export default class EarthAtomSphereModel extends BaseModel {
-  protected getCommonUniformsInfo(): { uniformsArray: number[]; uniformsLength: number; uniformsOption:{[key: string]: any}  } {
-    const { opacity = 1 } =
-      this.layer.getLayerConfig() as IAtmoSphereLayerStyleOptions;
-    const commonOptions ={
+  protected get attributeLocation() {
+    return Object.assign(super.attributeLocation, {
+      MAX: super.attributeLocation.MAX,
+      NORMAL: 9,
+      UV: 10,
+    });
+  }
+
+  protected getCommonUniformsInfo(): {
+    uniformsArray: number[];
+    uniformsLength: number;
+    uniformsOption: { [key: string]: any };
+  } {
+    const { opacity = 1 } = this.layer.getLayerConfig() as IAtmoSphereLayerStyleOptions;
+    const commonOptions = {
       u_opacity: isNumber(opacity) ? opacity : 1.0,
     };
     const commonBufferInfo = this.getUniformsBufferInfo(commonOptions);
@@ -43,6 +49,7 @@ export default class EarthAtomSphereModel extends BaseModel {
       moduleName: 'earthAtmoSphere',
       vertexShader: atmoSphereVert,
       fragmentShader: atmoSphereFrag,
+      defines: this.getDefines(),
       triangulation: earthTriangulation,
       depth: { enable: false },
       blend: this.getBlend(),
@@ -52,31 +59,31 @@ export default class EarthAtomSphereModel extends BaseModel {
 
   protected registerBuiltinAttributes() {
     // point layer size;
-    this.styleAttributeService.registerStyleAttribute({
-      name: 'size',
-      type: AttributeType.Attribute,
-      descriptor: {
-        name: 'a_Size',
-        shaderLocation:ShaderLocation.SIZE,
-        buffer: {
-          usage: gl.DYNAMIC_DRAW,
-          data: [],
-          type: gl.FLOAT,
-        },
-        size: 1,
-        update: (feature: IEncodeFeature) => {
-          const { size = 1 } = feature;
-          return Array.isArray(size) ? [size[0]] : [size as number];
-        },
-      },
-    });
+    // this.styleAttributeService.registerStyleAttribute({
+    //   name: 'size',
+    //   type: AttributeType.Attribute,
+    //   descriptor: {
+    //     name: 'a_Size',
+    //     shaderLocation: this.attributeLocation.SIZE,
+    //     buffer: {
+    //       usage: gl.DYNAMIC_DRAW,
+    //       data: [],
+    //       type: gl.FLOAT,
+    //     },
+    //     size: 1,
+    //     update: (feature: IEncodeFeature) => {
+    //       const { size = 1 } = feature;
+    //       return Array.isArray(size) ? [size[0]] : [size as number];
+    //     },
+    //   },
+    // });
 
     this.styleAttributeService.registerStyleAttribute({
       name: 'normal',
       type: AttributeType.Attribute,
       descriptor: {
         name: 'a_Normal',
-        shaderLocation:ShaderLocation.NORMAL,
+        shaderLocation: this.attributeLocation.NORMAL,
         buffer: {
           usage: gl.STATIC_DRAW,
           data: [],
@@ -100,18 +107,14 @@ export default class EarthAtomSphereModel extends BaseModel {
       type: AttributeType.Attribute,
       descriptor: {
         name: 'a_Uv',
-        shaderLocation:ShaderLocation.UV,
+        shaderLocation: this.attributeLocation.UV,
         buffer: {
           usage: gl.DYNAMIC_DRAW,
           data: [],
           type: gl.FLOAT,
         },
         size: 2,
-        update: (
-          feature: IEncodeFeature,
-          featureIdx: number,
-          vertex: number[],
-        ) => {
+        update: (feature: IEncodeFeature, featureIdx: number, vertex: number[]) => {
           return [vertex[3], vertex[4]];
         },
       },

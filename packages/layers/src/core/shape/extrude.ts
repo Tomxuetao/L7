@@ -1,7 +1,9 @@
 import { lngLatToMeters } from '@antv/l7-utils';
 import earcut from 'earcut';
 import { vec3 } from 'gl-matrix';
+import { getPolygonSurfaceIndices } from '../utils';
 import type { IPath } from './Path';
+
 export interface IExtrudeGeomety {
   positions: number[];
   index: number[];
@@ -32,21 +34,11 @@ export default function extrudePolygon(path: IPath[]): IExtrudeGeomety {
       positions.push(vertices[j * 3], vertices[j * 3 + 1], 1);
     }
   }
-  const triangles = earcut(
-    flattengeo.vertices,
-    flattengeo.holes,
-    flattengeo.dimensions,
-  );
+  const triangles = earcut(flattengeo.vertices, flattengeo.holes, flattengeo.dimensions);
   indexArray.push(...triangles);
   for (let i = 0; i < n; i++) {
-    const prePoint = flattengeo.vertices.slice(
-      i * dimensions,
-      (i + 1) * dimensions,
-    );
-    let nextPoint = flattengeo.vertices.slice(
-      (i + 1) * dimensions,
-      (i + 2) * dimensions,
-    );
+    const prePoint = flattengeo.vertices.slice(i * dimensions, (i + 1) * dimensions);
+    let nextPoint = flattengeo.vertices.slice((i + 1) * dimensions, (i + 2) * dimensions);
     if (nextPoint.length === 0) {
       nextPoint = flattengeo.vertices.slice(0, dimensions);
     }
@@ -72,13 +64,10 @@ export default function extrudePolygon(path: IPath[]): IExtrudeGeomety {
     index: indexArray,
   };
 }
+
 export function fillPolygon(points: IPath[]) {
   const flattengeo = earcut.flatten(points);
-  const triangles = earcut(
-    flattengeo.vertices,
-    flattengeo.holes,
-    flattengeo.dimensions,
-  );
+  const triangles = earcut(flattengeo.vertices, flattengeo.holes, flattengeo.dimensions);
   return {
     positions: flattengeo.vertices,
     index: triangles,
@@ -96,7 +85,7 @@ export function extrude_PolygonNormal(
   }
   const n = path[0].length;
   const flattengeo = earcut.flatten(path);
-  const { vertices, dimensions } = flattengeo;
+  const { vertices, dimensions, holes } = flattengeo;
   const positions = [];
   const indexArray = [];
   const normals = [];
@@ -111,22 +100,14 @@ export function extrude_PolygonNormal(
     );
     normals.push(0, 0, 1);
   }
-  const triangles = earcut(
-    flattengeo.vertices,
-    flattengeo.holes,
-    flattengeo.dimensions,
-  );
-  indexArray.push(...triangles);
+
+  const indices = getPolygonSurfaceIndices(vertices, holes, dimensions, needFlat);
+  indexArray.push(...indices);
+
   // 设置侧面
   for (let i = 0; i < n; i++) {
-    const prePoint = flattengeo.vertices.slice(
-      i * dimensions,
-      (i + 1) * dimensions,
-    );
-    let nextPoint = flattengeo.vertices.slice(
-      (i + 1) * dimensions,
-      (i + 2) * dimensions,
-    );
+    const prePoint = flattengeo.vertices.slice(i * dimensions, (i + 1) * dimensions);
+    let nextPoint = flattengeo.vertices.slice((i + 1) * dimensions, (i + 2) * dimensions);
     if (nextPoint.length === 0) {
       nextPoint = flattengeo.vertices.slice(0, dimensions);
     }
@@ -169,6 +150,7 @@ export function extrude_PolygonNormal(
     normals,
   };
 }
+
 function computeVertexNormals(
   p1: [number, number, number],
   p2: [number, number, number],

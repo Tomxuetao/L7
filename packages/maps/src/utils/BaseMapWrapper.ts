@@ -14,26 +14,17 @@ export default class BaseMapWrapper<RawMap> implements IMapWrapper {
     this.config = config;
   }
 
-  public setContainer(
-    sceneContainer: L7Container,
-    id: string | HTMLDivElement,
-    canvas?: HTMLCanvasElement,
-  ) {
+  public setContainer(sceneContainer: L7Container, id: string | HTMLDivElement) {
     this.configService = sceneContainer.globalConfigService;
     sceneContainer.mapConfig = {
       ...this.config,
       id,
-      canvas,
     };
     // @ts-ignore
-    sceneContainer.mapService = new (this.getServiceConstructor())(
-      sceneContainer,
-    );
+    sceneContainer.mapService = new (this.getServiceConstructor())(sceneContainer);
   }
 
-  protected getServiceConstructor(): new (
-    ...args: any[]
-  ) => IMapService<RawMap> {
+  protected getServiceConstructor(): new (...args: any[]) => IMapService<RawMap> {
     throw new Error('Method not implemented.');
   }
 }

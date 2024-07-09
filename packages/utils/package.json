@@ -1,28 +1,24 @@
 {
   "name": "@antv/l7-utils",
-  "version": "2.21.1",
-  "description": "",
+  "version": "2.22.0",
+  "description": "Utils for L7",
+  "license": "MIT",
+  "author": "https://github.com/orgs/antvis/people",
+  "sideEffects": true,
   "main": "lib/index.js",
   "module": "es/index.js",
   "types": "es/index.d.ts",
-  "sideEffects": true,
   "files": [
     "lib",
-    "es",
-    "dist",
-    "README.md"
+    "es"
   ],
   "scripts": {
-    "tsc": "tsc --project tsconfig.build.json",
-    "clean": "rimraf dist; rimraf es; rimraf lib;",
-    "build": "father build",
-    "build:cjs": "BABEL_ENV=cjs babel src --root-mode upward --out-dir lib --source-maps --extensions .ts,.tsx --delete-dir-on-start --no-comments",
-    "build:esm": "BABEL_ENV=esm babel src --root-mode upward --out-dir es --source-maps --extensions .ts,.tsx --delete-dir-on-start --no-comments",
-    "watch": "BABEL_ENV=cjs babel src --watch --root-mode upward --out-dir lib --source-maps --extensions .ts,.tsx --delete-dir-on-start --no-comments",
-    "sync": "tnpm sync"
+    "dev": "father dev",
+    "build": "npm run clean && father build",
+    "check-deps": "father doctor",
+    "lint": "eslint src __tests__",
+    "clean": "rimraf dist es lib"
   },
-  "author": "lzxue",
-  "license": "ISC",
   "dependencies": {
     "@babel/runtime": "^7.7.7",
     "@turf/bbox": "^6.5.0",
@@ -37,10 +33,12 @@
   },
   "devDependencies": {
     "@types/d3-color": "^1.2.2",
-    "@types/earcut": "^2.1.0"
+    "@types/earcut": "^2.1.0",
+    "@types/lodash": "^4.14.138"
   },
-  "gitHead": "684ba4eb806a798713496d3fc0b4d1e17517dc31",
   "publishConfig": {
-    "access": "public"
-  }
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "repository": "git@github.com:antvis/L7.git"
 }

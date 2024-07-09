@@ -43,7 +43,7 @@ import {
   stencilFuncMap,
   stencilOpMap,
 } from './constants';
-const { isPlainObject, isTypedArray } = lodashUtil;
+const { isPlainObject, isTypedArray, isNil } = lodashUtil;
 
 export default class DeviceModel implements IModel {
   private destroyed: boolean = false;
@@ -63,21 +63,13 @@ export default class DeviceModel implements IModel {
     private options: IModelInitializationOptions,
     private service: DeviceRendererService,
   ) {
-    const {
-      vs,
-      fs,
-      attributes,
-      uniforms,
-      count,
-      elements,
-      diagnosticDerivativeUniformityEnabled,
-    } = options;
+    const { vs, fs, attributes, uniforms, count, elements, diagnosticDerivativeUniformityEnabled } =
+      options;
     this.options = options;
 
-    const diagnosticDerivativeUniformityHeader =
-      diagnosticDerivativeUniformityEnabled
-        ? ''
-        : this.service['viewportOrigin'] === ViewportOrigin.UPPER_LEFT
+    const diagnosticDerivativeUniformityHeader = diagnosticDerivativeUniformityEnabled
+      ? ''
+      : this.service['viewportOrigin'] === ViewportOrigin.UPPER_LEFT
         ? 'diagnostic(off,derivative_uniformity);'
         : '';
 
@@ -164,8 +156,7 @@ export default class DeviceModel implements IModel {
     const stencilParams = this.getStencilDrawParams({ stencil });
     const stencilEnabled = !!(stencilParams && stencilParams.enable);
 
-    return this.device.createRenderPipeline({
-      // return this.service.renderCache.createRenderPipeline({
+    const pipeline = this.device.createRenderPipeline({
       inputLayout: this.inputLayout,
       program: this.program,
       topology: primitiveMap[primitive],
@@ -189,52 +180,37 @@ export default class DeviceModel implements IModel {
               }
             : {
                 channelWriteMask:
-                  stencilEnabled &&
-                  stencilParams.opFront.zpass === StencilOp.REPLACE
+                  stencilEnabled && stencilParams.opFront.zpass === StencilOp.REPLACE
                     ? ChannelWriteMask.NONE
                     : ChannelWriteMask.ALL,
                 rgbBlendState: {
-                  blendMode:
-                    (blendEnabled && blendParams.equation.rgb) || BlendMode.ADD,
+                  blendMode: (blendEnabled && blendParams.equation.rgb) || BlendMode.ADD,
                   blendSrcFactor:
-                    (blendEnabled && blendParams.func.srcRGB) ||
-                    BlendFactor.SRC_ALPHA,
+                    (blendEnabled && blendParams.func.srcRGB) || BlendFactor.SRC_ALPHA,
                   blendDstFactor:
-                    (blendEnabled && blendParams.func.dstRGB) ||
-                    BlendFactor.ONE_MINUS_SRC_ALPHA,
+                    (blendEnabled && blendParams.func.dstRGB) || BlendFactor.ONE_MINUS_SRC_ALPHA,
                 },
                 alphaBlendState: {
-                  blendMode:
-                    (blendEnabled && blendParams.equation.alpha) ||
-                    BlendMode.ADD,
-                  blendSrcFactor:
-                    (blendEnabled && blendParams.func.srcAlpha) ||
-                    BlendFactor.ONE,
-                  blendDstFactor:
-                    (blendEnabled && blendParams.func.dstAlpha) ||
-                    BlendFactor.ONE,
+                  blendMode: (blendEnabled && blendParams.equation.alpha) || BlendMode.ADD,
+                  blendSrcFactor: (blendEnabled && blendParams.func.srcAlpha) || BlendFactor.ONE,
+                  blendDstFactor: (blendEnabled && blendParams.func.dstAlpha) || BlendFactor.ONE,
                 },
               },
         ],
         blendConstant: blendEnabled ? TransparentBlack : undefined,
         depthWrite: depthEnabled,
-        depthCompare:
-          (depthEnabled && depthParams.func) || CompareFunction.LESS,
+        depthCompare: (depthEnabled && depthParams.func) || CompareFunction.LESS,
         cullMode: (cullEnabled && cullParams.face) || CullMode.NONE,
         stencilWrite: stencilEnabled,
         stencilFront: {
-          compare: stencilEnabled
-            ? stencilParams.func.cmp
-            : CompareFunction.ALWAYS,
+          compare: stencilEnabled ? stencilParams.func.cmp : CompareFunction.ALWAYS,
           passOp: stencilParams.opFront.zpass,
           failOp: stencilParams.opFront.fail,
           depthFailOp: stencilParams.opFront.zfail,
           mask: stencilParams.opFront.mask,
         },
         stencilBack: {
-          compare: stencilEnabled
-            ? stencilParams.func.cmp
-            : CompareFunction.ALWAYS,
+          compare: stencilEnabled ? stencilParams.func.cmp : CompareFunction.ALWAYS,
           passOp: stencilParams.opBack.zpass,
           failOp: stencilParams.opBack.fail,
           depthFailOp: stencilParams.opBack.zfail,
@@ -242,6 +218,14 @@ export default class DeviceModel implements IModel {
         },
       },
     });
+
+    // Save stencil reference on pipeline for later use.
+    if (stencilEnabled && !isNil(stencil?.func?.ref)) {
+      // @ts-ignore
+      pipeline.stencilFuncReference = stencil.func.ref;
+    }
+
+    return pipeline;
   }
 
   updateAttributesAndElements() {}
@@ -285,8 +269,7 @@ export default class DeviceModel implements IModel {
       ...this.extractUniforms(uniforms),
     };
 
-    const { renderPass, currentFramebuffer, width, height, renderCache } =
-      this.service;
+    const { renderPass, currentFramebuffer, width, height } = this.service;
 
     // TODO: Recreate pipeline only when blend / cull changed.
     this.pipeline = this.createPipeline(mergedOptions, pick);
@@ -309,7 +292,11 @@ export default class DeviceModel implements IModel {
     device['swapChainHeight'] = tmpHeight;
 
     renderPass.setPipeline(this.pipeline);
-    renderPass.setStencilReference(1);
+    // @ts-ignore
+    if (!isNil(this.pipeline.stencilFuncReference)) {
+      // @ts-ignore
+      renderPass.setStencilReference(this.pipeline.stencilFuncReference);
+    }
     renderPass.setVertexInput(
       this.inputLayout,
       this.vertexBuffers.map((buffer) => ({
@@ -323,8 +310,7 @@ export default class DeviceModel implements IModel {
         : null,
     );
     if (uniformBuffers) {
-      // this.bindings = device.createBindings({
-      this.bindings = renderCache.createBindings({
+      this.bindings = device.createBindings({
         pipeline: this.pipeline,
         uniformBufferBindings: uniformBuffers.map((uniformBuffer, i) => {
           const buffer = uniformBuffer as DeviceBuffer;
@@ -370,18 +356,18 @@ export default class DeviceModel implements IModel {
   }
 
   destroy() {
-    this.program.destroy();
+    // 不销毁，方便后续重复使用
+    // this.program.destroy();
     this.vertexBuffers?.forEach((buffer) => buffer.destroy());
     this.indexBuffer?.destroy();
     this.bindings?.destroy();
-    this.inputLayout.destroy();
+    // 不能进行销毁，删除 deleteVertexArray
+    // this.inputLayout.destroy();
     this.pipeline.destroy();
     this.destroyed = true;
   }
 
-  private initDepthDrawParams({
-    depth,
-  }: Pick<IModelInitializationOptions, 'depth'>) {
+  private initDepthDrawParams({ depth }: Pick<IModelInitializationOptions, 'depth'>) {
     if (depth) {
       return {
         enable: depth.enable === undefined ? true : !!depth.enable,
@@ -392,9 +378,7 @@ export default class DeviceModel implements IModel {
     }
   }
 
-  private getBlendDrawParams({
-    blend,
-  }: Pick<IModelInitializationOptions, 'blend'>) {
+  private getBlendDrawParams({ blend }: Pick<IModelInitializationOptions, 'blend'>) {
     const { enable, func, equation, color = [0, 0, 0, 0] } = blend || {};
     return {
       enable: !!enable,
@@ -402,8 +386,7 @@ export default class DeviceModel implements IModel {
         srcRGB: blendFuncMap[(func && func.srcRGB) || gl.SRC_ALPHA],
         srcAlpha: blendFuncMap[(func && func.srcAlpha) || gl.SRC_ALPHA],
         dstRGB: blendFuncMap[(func && func.dstRGB) || gl.ONE_MINUS_SRC_ALPHA],
-        dstAlpha:
-          blendFuncMap[(func && func.dstAlpha) || gl.ONE_MINUS_SRC_ALPHA],
+        dstAlpha: blendFuncMap[(func && func.dstAlpha) || gl.ONE_MINUS_SRC_ALPHA],
       },
       equation: {
         rgb: blendEquationMap[(equation && equation.rgb) || gl.FUNC_ADD],
@@ -416,9 +399,7 @@ export default class DeviceModel implements IModel {
   /**
    * @see https://github.com/regl-project/regl/blob/gh-pages/API.md#stencil
    */
-  private getStencilDrawParams({
-    stencil,
-  }: Pick<IModelInitializationOptions, 'stencil'>) {
+  private getStencilDrawParams({ stencil }: Pick<IModelInitializationOptions, 'stencil'>) {
     const {
       enable,
       mask = 0xffffffff,
@@ -463,9 +444,7 @@ export default class DeviceModel implements IModel {
   /**
    * @see https://github.com/regl-project/regl/blob/gh-pages/API.md#culling
    */
-  private initCullDrawParams({
-    cull,
-  }: Pick<IModelInitializationOptions, 'cull'>) {
+  private initCullDrawParams({ cull }: Pick<IModelInitializationOptions, 'cull'>) {
     if (cull) {
       const { enable, face = gl.BACK } = cull;
       return {
@@ -485,12 +464,7 @@ export default class DeviceModel implements IModel {
   } {
     const extractedUniforms = {};
     Object.keys(uniforms).forEach((uniformName) => {
-      this.extractUniformsRecursively(
-        uniformName,
-        uniforms[uniformName],
-        extractedUniforms,
-        '',
-      );
+      this.extractUniformsRecursively(uniformName, uniforms[uniformName], extractedUniforms, '');
     });
 
     return extractedUniforms;

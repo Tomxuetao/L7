@@ -1,11 +1,9 @@
 import type { ILayer } from '../../layer/ILayerService';
 import type { IFramebuffer } from '../IFramebuffer';
-import type {
-  IPostProcessingPass,
-  IPostProcessor,
-} from '../IMultiPassRenderer';
+import type { IPostProcessingPass, IPostProcessor } from '../IMultiPassRenderer';
 import type { IRendererService } from '../IRendererService';
 import type { ITexture2D } from '../ITexture2D';
+import { TextureUsage } from '../ITexture2D';
 import { gl } from '../gl';
 
 /**
@@ -58,10 +56,7 @@ export default class PostProcessor implements IPostProcessor {
     });
   }
 
-  public async renderBloomPass(
-    layer: ILayer,
-    pass: IPostProcessingPass<unknown>,
-  ) {
+  public async renderBloomPass(layer: ILayer, pass: IPostProcessingPass<unknown>) {
     const tex = (await this.getReadFBOTex()) as ITexture2D;
     // count 定义 bloom 交替绘制的次数
     let count = 0;
@@ -106,11 +101,7 @@ export default class PostProcessor implements IPostProcessor {
     });
   }
 
-  public add<T>(
-    pass: IPostProcessingPass<T>,
-    layer: ILayer,
-    config?: Partial<T>,
-  ) {
+  public add<T>(pass: IPostProcessingPass<T>, layer: ILayer, config?: Partial<T>) {
     pass.init(layer, config);
     this.passes.push(pass);
   }
@@ -125,9 +116,7 @@ export default class PostProcessor implements IPostProcessor {
     this.passes.splice(index, 0, pass);
   }
 
-  public getPostProcessingPassByName(
-    name: string,
-  ): IPostProcessingPass<unknown> | undefined {
+  public getPostProcessingPassByName(name: string): IPostProcessingPass<unknown> | undefined {
     return this.passes.find((p) => p.getName() === name);
   }
 
@@ -139,6 +128,7 @@ export default class PostProcessor implements IPostProcessor {
         height: 1,
         wrapS: gl.CLAMP_TO_EDGE,
         wrapT: gl.CLAMP_TO_EDGE,
+        usage: TextureUsage.RENDER_TARGET,
       }),
     });
     this.writeFBO = createFramebuffer({
@@ -147,6 +137,7 @@ export default class PostProcessor implements IPostProcessor {
         height: 1,
         wrapS: gl.CLAMP_TO_EDGE,
         wrapT: gl.CLAMP_TO_EDGE,
+        usage: TextureUsage.RENDER_TARGET,
       }),
     });
   }

@@ -1,12 +1,5 @@
-import type {
-  IAnimateOption,
-  IEncodeFeature,
-  ILayerConfig,
-  IModel} from '@antv/l7-core';
-import {
-  AttributeType,
-  gl
-} from '@antv/l7-core';
+import type { IAnimateOption, IEncodeFeature, ILayerConfig, IModel } from '@antv/l7-core';
+import { AttributeType, gl } from '@antv/l7-core';
 import BaseModel from '../../core/BaseModel';
 import type { IPointLayerStyleOptions } from '../../core/interface';
 import { GlobelPointFillTriangulation } from '../../core/triangulation';
@@ -15,9 +8,22 @@ import pointFillFrag from '../shaders/earthFill/earthFill_frag.glsl';
 import pointFillVert from '../shaders/earthFill/earthFill_vert.glsl';
 
 import { mat4, vec3 } from 'gl-matrix';
-import { ShaderLocation } from '../../core/CommonStyleAttribute';
+
 export default class FillModel extends BaseModel {
-  protected getCommonUniformsInfo(): { uniformsArray: number[]; uniformsLength: number; uniformsOption:{[key: string]: any}  } {
+  protected get attributeLocation() {
+    return Object.assign(super.attributeLocation, {
+      MAX: super.attributeLocation.MAX,
+      SIZE: 9,
+      SHAPE: 10,
+      EXTRUDE: 11,
+    });
+  }
+
+  protected getCommonUniformsInfo(): {
+    uniformsArray: number[];
+    uniformsLength: number;
+    uniformsOption: { [key: string]: any };
+  } {
     const {
       strokeOpacity = 1,
       strokeWidth = 0,
@@ -32,10 +38,9 @@ export default class FillModel extends BaseModel {
       u_stroke_width: strokeWidth,
       u_blur: blur,
     };
-    const commonBufferInfo = this.getUniformsBufferInfo(commonOptions);    
+    const commonBufferInfo = this.getUniformsBufferInfo(commonOptions);
     return commonBufferInfo;
   }
-
 
   public async initModels(): Promise<IModel[]> {
     this.initUniformsBuffer();
@@ -49,7 +54,8 @@ export default class FillModel extends BaseModel {
       vertexShader: pointFillVert,
       fragmentShader: pointFillFrag,
       triangulation: GlobelPointFillTriangulation,
-      inject:this.getInject(),
+      defines: this.getDefines(),
+      inject: this.getInject(),
       depth: { enable: true },
       blend: this.getBlend(),
     });
@@ -66,7 +72,7 @@ export default class FillModel extends BaseModel {
       type: AttributeType.Attribute,
       descriptor: {
         name: 'a_Extrude',
-        shaderLocation:ShaderLocation.EXTRUDE,
+        shaderLocation: this.attributeLocation.EXTRUDE,
         buffer: {
           // give the WebGL driver a hint that this buffer may change
           usage: gl.DYNAMIC_DRAW,
@@ -84,8 +90,7 @@ export default class FillModel extends BaseModel {
           const n1 = vec3.fromValues(0, 0, 1);
           const n2 = vec3.fromValues(x, 0, z);
 
-          const xzReg =
-            x >= 0 ? vec3.angle(n1, n2) : Math.PI * 2 - vec3.angle(n1, n2);
+          const xzReg = x >= 0 ? vec3.angle(n1, n2) : Math.PI * 2 - vec3.angle(n1, n2);
 
           const yReg = Math.PI * 2 - Math.asin(y / 100);
 
@@ -111,11 +116,7 @@ export default class FillModel extends BaseModel {
 
           const extrude = [...v1, ...v2, ...v3, ...v4];
           const extrudeIndex = (attributeIdx % 4) * 3;
-          return [
-            extrude[extrudeIndex],
-            extrude[extrudeIndex + 1],
-            extrude[extrudeIndex + 2],
-          ];
+          return [extrude[extrudeIndex], extrude[extrudeIndex + 1], extrude[extrudeIndex + 2]];
         },
       },
     });
@@ -126,7 +127,7 @@ export default class FillModel extends BaseModel {
       type: AttributeType.Attribute,
       descriptor: {
         name: 'a_Size',
-        shaderLocation:ShaderLocation.SIZE,
+        shaderLocation: this.attributeLocation.SIZE,
         buffer: {
           // give the WebGL driver a hint that this buffer may change
           usage: gl.DYNAMIC_DRAW,
@@ -147,7 +148,7 @@ export default class FillModel extends BaseModel {
       type: AttributeType.Attribute,
       descriptor: {
         name: 'a_Shape',
-        shaderLocation:ShaderLocation.SHAPE,
+        shaderLocation: this.attributeLocation.SHAPE,
         buffer: {
           // give the WebGL driver a hint that this buffer may change
           usage: gl.DYNAMIC_DRAW,

@@ -1,19 +1,19 @@
-import type {
-  IEncodeFeature,
-  IModel,
-  IModelUniform,
-  ITexture2D} from '@antv/l7-core';
-import {
-  AttributeType,
-  gl
-} from '@antv/l7-core';
+import type { IEncodeFeature, IModel, IModelUniform, ITexture2D } from '@antv/l7-core';
+import { AttributeType, gl } from '@antv/l7-core';
 import BaseModel from '../../core/BaseModel';
-import { ShaderLocation } from '../../core/CommonStyleAttribute';
 import type { IPointLayerStyleOptions } from '../../core/interface';
 import { PointImageTriangulation } from '../../core/triangulation';
 import pointImageFrag from '../shaders/image/image_frag.glsl';
 import pointImageVert from '../shaders/image/image_vert.glsl';
 export default class ImageModel extends BaseModel {
+  protected get attributeLocation() {
+    return Object.assign(super.attributeLocation, {
+      MAX: super.attributeLocation.MAX,
+      SIZE: 9,
+      UV: 10,
+    });
+  }
+
   private texture: ITexture2D;
 
   public getUninforms(): IModelUniform {
@@ -31,18 +31,20 @@ export default class ImageModel extends BaseModel {
     };
   }
 
-  protected getCommonUniformsInfo(): { uniformsArray: number[]; uniformsLength: number; uniformsOption: { [key: string]: any; }; } {
-    const {
-      raisingHeight = 0,
-      heightfixed = false,
-    } = this.layer.getLayerConfig() as IPointLayerStyleOptions;
+  protected getCommonUniformsInfo(): {
+    uniformsArray: number[];
+    uniformsLength: number;
+    uniformsOption: { [key: string]: any };
+  } {
+    const { raisingHeight = 0, heightfixed = false } =
+      this.layer.getLayerConfig() as IPointLayerStyleOptions;
 
     const commonOptions = {
       u_textSize: [1024, this.iconService.canvasHeight || 128],
       u_raisingHeight: Number(raisingHeight),
       u_heightfixed: Number(heightfixed),
       u_texture: this.texture,
-    }
+    };
 
     this.textures = [this.texture];
 
@@ -68,6 +70,7 @@ export default class ImageModel extends BaseModel {
       vertexShader: pointImageVert,
       fragmentShader: pointImageFrag,
       triangulation: PointImageTriangulation,
+      defines: this.getDefines(),
       inject: this.getInject(),
       depth: { enable: false },
       primitive: gl.POINTS,
@@ -76,13 +79,16 @@ export default class ImageModel extends BaseModel {
   }
 
   protected registerBuiltinAttributes() {
+    // 注册 Position 属性 64 位地位部分，经纬度数据开启双精度，避免大于 20层级以上出现数据偏移
+    this.registerPosition64LowAttribute();
+
     // point layer size;
     this.styleAttributeService.registerStyleAttribute({
       name: 'size',
       type: AttributeType.Attribute,
       descriptor: {
         name: 'a_Size',
-        shaderLocation: ShaderLocation.SIZE,
+        shaderLocation: this.attributeLocation.SIZE,
         buffer: {
           // give the WebGL driver a hint that this buffer may change
           usage: gl.DYNAMIC_DRAW,
@@ -103,7 +109,7 @@ export default class ImageModel extends BaseModel {
       type: AttributeType.Attribute,
       descriptor: {
         name: 'a_Uv',
-        shaderLocation: ShaderLocation.UV,
+        shaderLocation: this.attributeLocation.UV,
         buffer: {
           // give the WebGL driver a hint that this buffer may change
           usage: gl.DYNAMIC_DRAW,

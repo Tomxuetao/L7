@@ -6,6 +6,13 @@ import { HeatmapGridTriangulation } from '../../core/triangulation';
 import grid_frag from '../shaders/grid/grid_frag.glsl';
 import grid_vert from '../shaders/grid/grid_vert.glsl';
 export default class GridModel extends BaseModel {
+  protected get attributeLocation() {
+    return Object.assign(super.attributeLocation, {
+      MAX: super.attributeLocation.MAX,
+      POS: 9,
+    });
+  }
+
   public getUninforms(): IModelUniform {
     const commoninfo = this.getCommonUniformsInfo();
     const attributeInfo = this.getUniformsBufferInfo(this.getStyleAttribute());
@@ -21,13 +28,9 @@ export default class GridModel extends BaseModel {
     uniformsLength: number;
     uniformsOption: { [key: string]: any };
   } {
-    const { opacity, coverage, angle } =
-      this.layer.getLayerConfig() as IHeatMapLayerStyleOptions;
+    const { opacity, coverage, angle } = this.layer.getLayerConfig() as IHeatMapLayerStyleOptions;
     const commonOptions = {
-      u_radius: [
-        this.layer.getSource().data.xOffset,
-        this.layer.getSource().data.yOffset,
-      ],
+      u_radius: [this.layer.getSource().data.xOffset, this.layer.getSource().data.yOffset],
       u_opacity: opacity || 1.0,
       u_coverage: coverage || 0.9,
       u_angle: angle || 0,
@@ -47,6 +50,7 @@ export default class GridModel extends BaseModel {
       moduleName: 'heatmapGrid',
       vertexShader: grid_vert,
       fragmentShader: grid_frag,
+      defines: this.getDefines(),
       triangulation: HeatmapGridTriangulation,
       primitive: gl.TRIANGLES,
       depth: { enable: false },
@@ -58,7 +62,7 @@ export default class GridModel extends BaseModel {
       name: 'pos', // 顶点经纬度位置
       type: AttributeType.Attribute,
       descriptor: {
-        shaderLocation: 10,
+        shaderLocation: this.attributeLocation.POS,
         name: 'a_Pos',
         buffer: {
           usage: gl.DYNAMIC_DRAW,
@@ -67,11 +71,7 @@ export default class GridModel extends BaseModel {
         },
         size: 3,
         update: (feature: IEncodeFeature) => {
-          const coordinates = (
-            feature.version === 'GAODE2.x'
-              ? feature.originCoordinates
-              : feature.coordinates
-          ) as number[];
+          const coordinates = feature.coordinates as number[];
           return [coordinates[0], coordinates[1], 0];
         },
       },

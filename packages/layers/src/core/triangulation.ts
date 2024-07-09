@@ -1,9 +1,9 @@
 import type { IEncodeFeature } from '@antv/l7-core';
 import {
+  aProjectFlat,
   calculateCentroid,
   calculatePointsCenterAndRadius,
   lngLatToMeters,
-  aProjectFlat
 } from '@antv/l7-utils';
 import earcut from 'earcut';
 // @ts-ignore
@@ -16,20 +16,12 @@ import {
   primitiveSphere,
 } from '../earth/utils';
 import ExtrudePolyline from '../utils/extrude_polyline';
-import type {
-  IExtrudeGeomety} from './shape/extrude';
-import extrudePolygon, {
-  extrude_PolygonNormal,
-  fillPolygon
-} from './shape/extrude';
-import type {
-  IPosition,
-  ShapeType2D,
-  ShapeType3D} from './shape/Path';
+import type { IPosition, ShapeType2D, ShapeType3D } from './shape/Path';
+import { geometryShape } from './shape/Path';
+import type { IExtrudeGeomety } from './shape/extrude';
+import extrudePolygon, { extrude_PolygonNormal, fillPolygon } from './shape/extrude';
+import { getPolygonSurfaceIndices } from './utils';
 
-import {
-  geometryShape
-} from './shape/Path';
 type IShape = ShapeType2D & ShapeType3D;
 interface IGeometryCache {
   [key: string]: IExtrudeGeomety;
@@ -69,10 +61,7 @@ export function GlobelPointFillTriangulation(feature: IEncodeFeature) {
  */
 export function PointExtrudeTriangulation(feature: IEncodeFeature) {
   const { shape } = feature;
-  const { positions, index, normals } = getGeometry(
-    shape as ShapeType3D,
-    false,
-  );
+  const { positions, index, normals } = getGeometry(shape as ShapeType3D, false);
   return {
     vertices: positions,
     indices: index,
@@ -99,7 +88,7 @@ export function PointImageTriangulation(feature: IEncodeFeature) {
  * @param feature 映射feature
  */
 export function LineTriangulation(feature: IEncodeFeature) {
-  const { coordinates, originCoordinates, version } = feature;
+  const { coordinates } = feature;
   // let path = coordinates as number[][][] | number[][];
   // if (!Array.isArray(path[0][0])) {
   //   path = [coordinates] as number[][][];
@@ -110,33 +99,13 @@ export function LineTriangulation(feature: IEncodeFeature) {
     join: 'bevel',
   });
 
-  if (version === 'GAODE2.x') {
-    // 处理高德2.0几何体构建
-    let path1 = coordinates as number[][][] | number[][]; // 计算位置
-    if (!Array.isArray(path1[0][0])) {
-      path1 = [coordinates] as number[][][];
-    }
-    let path2 = originCoordinates as number[][][] | number[][]; // 计算法线
-    if (!Array.isArray(path2[0][0])) {
-      path2 = [originCoordinates] as number[][][];
-    }
-
-    for (let i = 0; i < path1.length; i++) {
-      // 高德2.0在计算线时，需要使用经纬度计算发现，使用 customCoords.lnglatToCoords 计算的数据来计算顶点的位置
-      const item1 = path1[i];
-      const item2 = path2[i];
-      line.extrude_gaode2(item1 as number[][], item2 as number[][]);
-    }
-  } else {
-    // 处理非高德2.0的几何体构建
-    let path = coordinates as number[][][] | number[][];
-    if (path[0] && !Array.isArray(path[0][0])) {
-      path = [coordinates] as number[][][];
-    }
-    path.forEach((item: any) => {
-      line.extrude(item as number[][]);
-    });
+  let path = coordinates as number[][][] | number[][];
+  if (path[0] && !Array.isArray(path[0][0])) {
+    path = [coordinates] as number[][][];
   }
+  path.forEach((item: any) => {
+    line.extrude(item as number[][]);
+  });
 
   const linebuffer = line.complex;
   return {
@@ -161,7 +130,7 @@ export function FlowLineFillTriangulation(feature: IEncodeFeature) {
       ...coord, // 0
       1,
       2,
-      -3,// mapbox 为正
+      -3, // mapbox 为正
       ...coord, // 1
       1,
       1,
@@ -181,7 +150,7 @@ export function FlowLineFillTriangulation(feature: IEncodeFeature) {
       ...coord, // 0
       1,
       2,
-      -3,// mapbox 为正
+      -3, // mapbox 为正
       ...coord, // 1
       1,
       1,
@@ -235,7 +204,7 @@ export function FlowLineFillTriangulation(feature: IEncodeFeature) {
 }
 
 export function SimpleLineTriangulation(feature: IEncodeFeature) {
-  const { coordinates,originCoordinates } = feature;
+  const { coordinates } = feature;
   const pos: any[] = [];
   if (!Array.isArray(coordinates[0])) {
     return {
@@ -246,10 +215,7 @@ export function SimpleLineTriangulation(feature: IEncodeFeature) {
       count: 0,
     };
   }
-  const { results, totalDistance } = getSimpleLineVertices(
-    coordinates as IPosition[],
-    originCoordinates as IPosition[]
-  );
+  const { results, totalDistance } = getSimpleLineVertices(coordinates as IPosition[]);
   results.map((point) => {
     pos.push(point[0], point[1], point[2], point[3], 0, totalDistance);
   });
@@ -303,26 +269,18 @@ function pushDis(point: number[], n?: number) {
   return point;
 }
 
-function getSimpleLineVertices(coordinates: number[][],originCoordinates:number[][]) {
+function getSimpleLineVertices(coordinates: number[][]) {
   let points = coordinates;
-  //除了amap2.0以外 coordinates就是经纬度数据
-  let originPoints = originCoordinates||coordinates;
-  if (
-    Array.isArray(points) &&
-    Array.isArray(points[0]) &&
-    Array.isArray(points[0][0])
-  ) {
+  if (Array.isArray(points) && Array.isArray(points[0]) && Array.isArray(points[0][0])) {
     // @ts-ignore
-    points = originCoordinates.flat();    
-    // @ts-ignore
-    originPoints = originCoordinates.flat();
+    points = coordinates.flat();
   }
   //修改计算距离的方式,与普通线的计算方式保持一致 edit by huyang 20231214
   let distance = 0;
   if (points.length < 2) {
     return {
       results: points,
-      totalDistance: 0
+      totalDistance: 0,
     };
   } else {
     const results: number[][] = [];
@@ -330,7 +288,7 @@ function getSimpleLineVertices(coordinates: number[][],originCoordinates:number[
     results.push(point);
 
     for (let i = 1; i < points.length - 1; i++) {
-      const subDistance = lineSegmentDistance(aProjectFlat(originPoints[i-1]), aProjectFlat(originPoints[i]));
+      const subDistance = lineSegmentDistance(aProjectFlat(points[i - 1]), aProjectFlat(points[i]));
       distance += subDistance;
 
       const mulPoint = pushDis(points[i], distance);
@@ -338,16 +296,15 @@ function getSimpleLineVertices(coordinates: number[][],originCoordinates:number[
       results.push(mulPoint);
     }
     const pointDistance = lineSegmentDistance(
-      aProjectFlat(originPoints[originPoints.length - 2]),
-      aProjectFlat(originPoints[originPoints.length - 1])
+      aProjectFlat(points[points.length - 2]),
+      aProjectFlat(points[points.length - 1]),
     );
     distance += pointDistance;
-    
 
     results.push(pushDis(points[points.length - 1], distance));
     return {
       results,
-      totalDistance: distance
+      totalDistance: distance,
     };
   }
 }
@@ -378,8 +335,11 @@ export function polygonTriangulation(feature: IEncodeFeature) {
   const { coordinates } = feature;
   const flattengeo = earcut.flatten(coordinates as number[][][]);
   const { vertices, dimensions, holes } = flattengeo;
+
+  const indices = getPolygonSurfaceIndices(vertices, holes, dimensions);
+
   return {
-    indices: earcut(vertices, holes, dimensions),
+    indices,
     vertices,
     size: dimensions,
   };
@@ -387,14 +347,12 @@ export function polygonTriangulation(feature: IEncodeFeature) {
 
 // 构建几何图形（带有中心点和大小）
 export function polygonTriangulationWithCenter(feature: IEncodeFeature) {
-  const { coordinates } = feature;
-  const flattengeo = earcut.flatten(coordinates as number[][][]);
-  const { vertices, dimensions, holes } = flattengeo;
+  const { indices, vertices, size } = polygonTriangulation(feature);
 
   return {
-    indices: earcut(vertices, holes, dimensions),
+    indices: indices,
     vertices: getVerticesWithCenter(vertices),
-    size: dimensions + 4,
+    size: size + 4,
   };
 }
 
@@ -411,10 +369,7 @@ function getVerticesWithCenter(vertices: number[]) {
 
 export function PolygonExtrudeTriangulation(feature: IEncodeFeature) {
   const coordinates = feature.coordinates as IPosition[][];
-  const { positions, index, normals } = extrude_PolygonNormal(
-    coordinates,
-    true,
-  );
+  const { positions, index, normals } = extrude_PolygonNormal(coordinates, true);
   return {
     vertices: positions, // [ x, y, z, uv.x,uv.y ]
     indices: index,
@@ -438,7 +393,7 @@ export function HeatmapGridTriangulation(feature: IEncodeFeature) {
  * @param feature 数据
  */
 export function RasterImageTriangulation(feature: IEncodeFeature) {
-  const coordinates = feature.coordinates as [number,number][];
+  const coordinates = feature.coordinates as [number, number][];
   // [ x, y, z. uv.x, uv.y]
   const positions: number[] = [
     ...coordinates[0],
@@ -471,10 +426,7 @@ export function RasterImageTriangulation(feature: IEncodeFeature) {
  * @param feature 映射数据
  * @param segNum 弧线线段数
  */
-export function LineArcTriangulation(
-  feature: IEncodeFeature,
-  styleOption?: unknown,
-) {
+export function LineArcTriangulation(feature: IEncodeFeature, styleOption?: unknown) {
   // @ts-ignore
   const { segmentNumber = 30 } = styleOption;
   const coordinates = feature.coordinates as IPosition[];
@@ -556,9 +508,7 @@ function getGeometry(shape: ShapeType3D, needFlat = false): IExtrudeGeomety {
   if (GeometryCache && GeometryCache[shape]) {
     return GeometryCache[shape];
   }
-  const path = geometryShape[shape]
-    ? geometryShape[shape]()
-    : geometryShape.cylinder();
+  const path = geometryShape[shape] ? geometryShape[shape]() : geometryShape.cylinder();
   const geometry = extrude_PolygonNormal([path], needFlat);
   GeometryCache[shape] = geometry;
   return geometry;
@@ -628,19 +578,9 @@ export function checkIsClosed(points: number[][][]) {
 }
 
 function getHeatmapGeometry(shape: ShapeType2D | ShapeType3D): IExtrudeGeomety {
-  const shape3d = [
-    'cylinder',
-    'triangleColumn',
-    'hexagonColumn',
-    'squareColumn',
-  ];
-  const path = geometryShape[shape]
-    ? geometryShape[shape]()
-    : geometryShape.circle();
-  const geometry =
-    shape3d.indexOf(shape) === -1
-      ? fillPolygon([path])
-      : extrudePolygon([path]);
+  const shape3d = ['cylinder', 'triangleColumn', 'hexagonColumn', 'squareColumn'];
+  const path = geometryShape[shape] ? geometryShape[shape]() : geometryShape.circle();
+  const geometry = shape3d.indexOf(shape) === -1 ? fillPolygon([path]) : extrudePolygon([path]);
   // const geometry = fillPolygon([path]);
   return geometry;
 }

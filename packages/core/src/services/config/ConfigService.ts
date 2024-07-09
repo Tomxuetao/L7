@@ -1,8 +1,5 @@
 import { lodashUtil } from '@antv/l7-utils';
-import type {
-  ILayerAttributesOption,
-  ILayerConfig,
-} from '../layer/ILayerService';
+import type { ILayerAttributesOption, ILayerConfig } from '../layer/ILayerService';
 import { MaskOperation } from '../layer/ILayerService';
 import type { IRenderConfig } from '../renderer/IRendererService';
 import type { IGlobalConfigService, ISceneConfig } from './IConfigService';
@@ -78,8 +75,6 @@ const defaultLayerConfig: Partial<ILayerConfig> = {
   activeMix: 0,
   selectColor: 'blue',
   selectMix: 0,
-  enableTAA: false,
-  jitterScale: 1,
   enableLighting: false,
   animateOption: {
     enable: false,
@@ -166,11 +161,7 @@ export default class GlobalConfigService implements IGlobalConfigService {
     return this.layerConfigCache[layerId];
   }
 
-  public setLayerConfig(
-    sceneId: string,
-    layerId: string,
-    config: Partial<ILayerConfig>,
-  ) {
+  public setLayerConfig(sceneId: string, layerId: string, config: Partial<ILayerConfig>) {
     // @ts-ignore
     this.layerConfigCache[layerId] = {
       ...merge({}, this.sceneConfigCache[sceneId], defaultLayerConfig, config),
@@ -181,10 +172,7 @@ export default class GlobalConfigService implements IGlobalConfigService {
     return this.layerAttributeConfigCache[layerId];
   }
 
-  public setAttributeConfig(
-    layerId: string,
-    attr: Partial<ILayerAttributesOption>,
-  ) {
+  public setAttributeConfig(layerId: string, attr: Partial<ILayerAttributesOption>) {
     // TODO
     this.layerAttributeConfigCache[layerId] = {
       ...this.layerAttributeConfigCache[layerId],

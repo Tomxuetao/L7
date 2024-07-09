@@ -46,12 +46,10 @@ export default class PickingService implements IPickingService {
   private pickBufferScale: number = 1.0;
 
   public init(id: string) {
-    const { createTexture2D, createFramebuffer, getViewportSize } =
-      this.rendererService;
+    const { createTexture2D, createFramebuffer, getViewportSize } = this.rendererService;
 
     let { width, height } = getViewportSize();
-    this.pickBufferScale =
-      this.configService.getSceneConfig(id).pickBufferScale || 1;
+    this.pickBufferScale = this.configService.getSceneConfig(id).pickBufferScale || 1;
 
     width = Math.round(width / this.pickBufferScale);
     height = Math.round(height / this.pickBufferScale);
@@ -72,10 +70,7 @@ export default class PickingService implements IPickingService {
     });
 
     // 监听 hover 事件
-    this.interactionService.on(
-      InteractionEvent.Hover,
-      this.pickingAllLayer.bind(this),
-    );
+    this.interactionService.on(InteractionEvent.Hover, this.pickingAllLayer.bind(this));
   }
 
   public async boxPickLayer(
@@ -102,10 +97,7 @@ export default class PickingService implements IPickingService {
     cb(features);
   }
 
-  public async pickBox(
-    layer: ILayer,
-    box: [number, number, number, number],
-  ): Promise<any[]> {
+  public async pickBox(layer: ILayer, box: [number, number, number, number]): Promise<any[]> {
     const [xMin, yMin, xMax, yMax] = box.map((v) => {
       const tmpV = v < 0 ? 0 : v;
       return Math.floor((tmpV * DOM.DPR) / this.pickBufferScale);
@@ -139,8 +131,7 @@ export default class PickingService implements IPickingService {
       const color = pickedColors.slice(i * 4, i * 4 + 4);
       const pickedFeatureIdx = decodePickingColor(color);
       if (pickedFeatureIdx !== -1 && !featuresIdMap[pickedFeatureIdx]) {
-        const rawFeature =
-          layer.layerPickService.getFeatureById(pickedFeatureIdx);
+        const rawFeature = layer.layerPickService.getFeatureById(pickedFeatureIdx);
         features.push({
           // @ts-ignore
           ...rawFeature,
@@ -156,9 +147,9 @@ export default class PickingService implements IPickingService {
   public handleCursor(layer: ILayer, type: string) {
     const { cursor = '', cursorEnabled } = layer.getLayerConfig();
     if (cursorEnabled) {
-      const version = this.mapService.version;
+      const mapType = this.mapService.getType();
       const domContainer =
-        version === 'GAODE2.x'
+        mapType === 'amap'
           ? this.mapService.getMapContainer()
           : this.mapService.getMarkerContainer();
       // const domContainer = this.mapService.getMarkerContainer();
@@ -186,7 +177,7 @@ export default class PickingService implements IPickingService {
     { x, y, lngLat, type, target }: IInteractionTarget,
   ) => {
     let isPicked = false;
-    const { readPixelsAsync, getViewportSize } = this.rendererService;
+    const { readPixels, readPixelsAsync, getViewportSize, queryVerdorInfo } = this.rendererService;
     const { width, height } = getViewportSize();
     const { enableHighlight, enableSelect } = layer.getLayerConfig();
     const xInDevicePixel = x * DOM.DPR;
@@ -199,30 +190,40 @@ export default class PickingService implements IPickingService {
     ) {
       return false;
     }
-    const pickedColors: Uint8Array | undefined = await readPixelsAsync({
-      x: Math.floor(xInDevicePixel / this.pickBufferScale),
-      // 视口坐标系原点在左上，而 WebGL 在左下，需要翻转 Y 轴
-      y: Math.floor((height - (y + 1) * DOM.DPR) / this.pickBufferScale),
-      width: 1,
-      height: 1,
-      data: new Uint8Array(1 * 1 * 4),
-      framebuffer: this.pickingFBO,
-    });
+
+    let pickedColors: Uint8Array | undefined;
+
+    // readPixelsAsync 比 readPixels 慢，会造成拾取事件冒泡延迟，优先使用 readPixelsAsync，WebGPU 只支持 readPixelsAsync API
+    const isWebGPU = queryVerdorInfo() === 'WebGPU';
+    if (isWebGPU) {
+      pickedColors = await readPixelsAsync({
+        x: Math.floor(xInDevicePixel / this.pickBufferScale),
+        // 视口坐标系原点在左上，而 WebGL 在左下，需要翻转 Y 轴
+        y: Math.floor((height - (y + 1) * DOM.DPR) / this.pickBufferScale),
+        width: 1,
+        height: 1,
+        data: new Uint8Array(1 * 1 * 4),
+        framebuffer: this.pickingFBO,
+      });
+    } else {
+      pickedColors = readPixels({
+        x: Math.floor(xInDevicePixel / this.pickBufferScale),
+        // 视口坐标系原点在左上，而 WebGL 在左下，需要翻转 Y 轴
+        y: Math.floor((height - (y + 1) * DOM.DPR) / this.pickBufferScale),
+        width: 1,
+        height: 1,
+        data: new Uint8Array(1 * 1 * 4),
+        framebuffer: this.pickingFBO,
+      });
+    }
+
     this.pickedColors = pickedColors;
 
-    if (
-      pickedColors[0] !== 0 ||
-      pickedColors[1] !== 0 ||
-      pickedColors[2] !== 0
-    ) {
+    if (pickedColors[0] !== 0 || pickedColors[1] !== 0 || pickedColors[2] !== 0) {
       const pickedFeatureIdx = decodePickingColor(pickedColors);
       // 瓦片数据获取性能问题需要优化
-      const rawFeature =
-        layer.layerPickService.getFeatureById(pickedFeatureIdx);
-      if (
-        pickedFeatureIdx !== layer.getCurrentPickId() &&
-        type === 'mousemove'
-      ) {
+      const rawFeature = layer.layerPickService.getFeatureById(pickedFeatureIdx);
+      if (pickedFeatureIdx !== layer.getCurrentPickId() && type === 'mousemove') {
         type = 'mouseenter';
       }
 
@@ -252,10 +253,7 @@ export default class PickingService implements IPickingService {
         x,
         y,
         lngLat,
-        type:
-          layer.getCurrentPickId() !== null && type === 'mousemove'
-            ? 'mouseout'
-            : 'un' + type,
+        type: layer.getCurrentPickId() !== null && type === 'mousemove' ? 'mouseout' : 'un' + type,
         featureId: null,
         target,
         feature: null,
@@ -271,16 +269,9 @@ export default class PickingService implements IPickingService {
     if (enableHighlight) {
       layer.layerPickService.highlightPickedFeature(pickedColors);
     }
-    if (
-      enableSelect &&
-      type === 'click' &&
-      pickedColors?.toString() !== [0, 0, 0, 0].toString()
-    ) {
+    if (enableSelect && type === 'click' && pickedColors?.toString() !== [0, 0, 0, 0].toString()) {
       const selectedId = decodePickingColor(pickedColors);
-      if (
-        layer.getCurrentSelectedId() === null ||
-        selectedId !== layer.getCurrentSelectedId()
-      ) {
+      if (layer.getCurrentSelectedId() === null || selectedId !== layer.getCurrentSelectedId()) {
         layer.layerPickService.selectFeature(pickedColors);
         layer.setCurrentSelectedId(selectedId);
       } else {
@@ -343,9 +334,7 @@ export default class PickingService implements IPickingService {
     this.resizePickingFBO();
 
     const layers = this.layerService.getRenderList();
-    for (const layer of layers
-      .filter((layer) => layer.needPick(target.type))
-      .reverse()) {
+    for (const layer of layers.filter((layer) => layer.needPick(target.type)).reverse()) {
       await useFramebufferAsync(this.pickingFBO, async () => {
         clear({
           framebuffer: this.pickingFBO,

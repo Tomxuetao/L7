@@ -88,8 +88,7 @@ export default class LayerPopup extends Popup<ILayerPopupOption> {
   }
 
   protected getDefault(option: Partial<ILayerPopupOption>): ILayerPopupOption {
-    const isHoverTrigger = option.trigger === 'hover';
-
+    const isHoverTrigger = option.trigger !== 'click';
     return {
       ...super.getDefault(option),
       trigger: 'hover',
@@ -247,11 +246,7 @@ export default class LayerPopup extends Popup<ILayerPopupOption> {
     const contentFrag = document.createDocumentFragment();
     if (layerInfo) {
       let feature = e.feature;
-      if (
-        feature.type === 'Feature' &&
-        'properties' in feature &&
-        'geometry' in feature
-      ) {
+      if (feature.type === 'Feature' && 'properties' in feature && 'geometry' in feature) {
         feature = feature.properties;
       }
       const { title, fields, customContent } = layerInfo;
@@ -263,10 +258,7 @@ export default class LayerPopup extends Popup<ILayerPopupOption> {
       }
 
       if (customContent) {
-        const content =
-          customContent instanceof Function
-            ? customContent(feature)
-            : customContent;
+        const content = customContent instanceof Function ? customContent(feature) : customContent;
         DOM.appendElementType(contentFrag, content);
       } else if (fields?.length) {
         fields?.forEach((fieldConfig) => {
@@ -279,14 +271,10 @@ export default class LayerPopup extends Popup<ILayerPopupOption> {
           const value = getValue ? getValue(e.feature) : get(feature, field);
 
           const fieldElement =
-            (formatField instanceof Function
-              ? formatField(field, feature)
-              : formatField) ?? field;
+            (formatField instanceof Function ? formatField(field, feature) : formatField) ?? field;
 
           let valueElement =
-            (formatValue instanceof Function
-              ? formatValue(value, feature)
-              : formatValue) ?? value;
+            (formatValue instanceof Function ? formatValue(value, feature) : formatValue) ?? value;
 
           const fieldSpan = DOM.create('span', 'l7-layer-popup__key', row);
           DOM.appendElementType(fieldSpan, fieldElement);
@@ -317,18 +305,13 @@ export default class LayerPopup extends Popup<ILayerPopupOption> {
    * @param configItem
    * @protected
    */
-  protected getLayerByConfig(
-    configItem: LayerPopupConfigItem,
-  ): ILayer | undefined {
+  protected getLayerByConfig(configItem: LayerPopupConfigItem): ILayer | undefined {
     const layer = configItem.layer;
     if (layer instanceof Object) {
       return layer;
     }
     if (typeof layer === 'string') {
-      return (
-        this.layerService.getLayer(layer) ||
-        this.layerService.getLayerByName(layer)
-      );
+      return this.layerService.getLayer(layer) || this.layerService.getLayerByName(layer);
     }
   }
 
@@ -348,10 +331,7 @@ export default class LayerPopup extends Popup<ILayerPopupOption> {
     );
   }
 
-  protected setDisplayFeatureInfo(displayFeatureInfo?: {
-    layer: ILayer;
-    featureId: number;
-  }) {
+  protected setDisplayFeatureInfo(displayFeatureInfo?: { layer: ILayer; featureId: number }) {
     const oldDisplayFeatureInfo = this.displayFeatureInfo;
     if (oldDisplayFeatureInfo) {
       oldDisplayFeatureInfo.layer.off('hide', this.onLayerHide);

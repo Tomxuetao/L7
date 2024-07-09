@@ -5,10 +5,10 @@ import type {
   IBuffer,
   ICameraService,
   IElements,
+  IEncodeFeature,
   IFontService,
   IGlobalConfigService,
   IIconService,
-  IInject,
   ILayer,
   ILayerConfig,
   ILayerModel,
@@ -17,23 +17,22 @@ import type {
   IModel,
   IModelUniform,
   IPickingService,
-  IRendererService,
   IRenderOptions,
+  IRendererService,
   IShaderModuleService,
   IStencilOptions,
   IStyleAttributeService,
   ITexture2D,
   ITexture2DInitializationOptions,
+  ShaderDefine,
+  ShaderInject,
   Triangulation,
 } from '@antv/l7-core';
-import { BlendType, MaskOperation, StencilType } from '@antv/l7-core';
-import { rgb2arr } from '@antv/l7-utils';
+import { AttributeType, BlendType, MaskOperation, StencilType, gl } from '@antv/l7-core';
+import { fp64LowPart, rgb2arr } from '@antv/l7-utils';
 import { BlendTypes } from '../utils/blend';
 import { getStencil, getStencilMask } from '../utils/stencil';
-import {
-  getCommonStyleAttributeOptions,
-  ShaderLocation,
-} from './CommonStyleAttribute';
+import { COMMON_ATTRIBUTE_LOCATION, getCommonStyleAttributeOptions } from './CommonStyleAttribute';
 import { DefaultUniformStyleType, DefaultUniformStyleValue } from './constant';
 import { MultipleOfFourNumber } from './utils';
 export type styleSingle =
@@ -41,14 +40,8 @@ export type styleSingle =
   | string
   | [string, (single: any) => number]
   | [string, [number, number]];
-export type styleOffset =
-  | string
-  | [number, number]
-  | [string, (single: any) => number];
-export type styleColor =
-  | string
-  | [string, (single: any) => string]
-  | [string, [string, string]];
+export type styleOffset = string | [number, number] | [string, (single: any) => number];
+export type styleColor = string | [string, (single: any) => string] | [string, [string, string]];
 export interface IDataTextureFrame {
   data: number[];
   width: number;
@@ -60,27 +53,25 @@ export interface ICellProperty {
   count: number;
 }
 
-const shaderLocationMap: Record<string, ShaderLocation> = {
-  opacity: ShaderLocation.OPACITY,
-  stroke: ShaderLocation.STROKE,
-  offsets: ShaderLocation.OFFSETS,
-  rotation: ShaderLocation.ROTATION,
-  extrusionBase: ShaderLocation.EXTRUSION_BASE,
-  thetaOffset: 15,
-};
+type AttributeLayoutLocationType = typeof COMMON_ATTRIBUTE_LOCATION & Record<string, number>;
+
+// 属性索引宏定义前缀，使用命名空间避免 define 名称重复情况
+const DEFINE_ATTRIBUTE_LOCATION_PREFIX = 'ATTRIBUTE_LOCATION_';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export default class BaseModel<ChildLayerStyleOptions = {}>
-  implements ILayerModel
-{
+export default class BaseModel<ChildLayerStyleOptions = {}> implements ILayerModel {
   public triangulation: Triangulation;
   public uniformBuffers: IBuffer[] = [];
   public textures: ITexture2D[] = [];
+  /**
+   * Attribute Layout Location in Shader
+   */
+  protected get attributeLocation(): AttributeLayoutLocationType {
+    return { ...COMMON_ATTRIBUTE_LOCATION };
+  }
 
   // style texture data mapping
-  public createTexture2D: (
-    options: ITexture2DInitializationOptions,
-  ) => ITexture2D;
+  public createTexture2D: (options: ITexture2DInitializationOptions) => ITexture2D;
   public preStyleAttribute: Record<string, any> = {};
   protected encodeStyleAttribute: Record<string, boolean> = {};
   protected layer: ILayer;
@@ -176,6 +167,12 @@ export default class BaseModel<ChildLayerStyleOptions = {}>
       ...attributeInfo.uniformsOption,
       ...commoninfo.uniformsOption,
     };
+    // 兼容 Regl Boolean 类型
+    Object.keys(result).forEach((key) => {
+      if (typeof result[key] === 'boolean') {
+        result[key] = result[key] ? 1 : 0;
+      }
+    });
     //如果是regl渲染 需要在uniform中带上u_texture 暂时用this.rendererService.device判断
     if (
       !this.rendererService.hasOwnProperty('device') &&
@@ -236,62 +233,26 @@ export default class BaseModel<ChildLayerStyleOptions = {}>
     }
   }
 
-  // 动态注入参与数据映射的uniform
-  protected getInject(): IInject {
-    const encodeStyleAttribute = this.layer.encodeStyleAttribute;
-    let str = '';
-    // a_Position = 0
-    // a_Color = 1
-    // a_PickingColor = 2
+  protected getInject(): ShaderInject {
+    const shaderInject = getDynamicStyleInject(
+      this.layer.enableShaderEncodeStyles,
+      this.layer.encodeStyleAttribute,
+    );
 
-    const uniforms: string[] = [];
-    // 支持数据映射的类型
-    this.layer.enableShaderEncodeStyles.forEach((key: string) => {
-      if (encodeStyleAttribute[key]) {
-        // 配置了数据映射的类型
-        str += `#define USE_ATTRIBUTE_${key.toUpperCase()} 0.0; \n\n`;
-      } else {
-        uniforms.push(`  ${DefaultUniformStyleType[key]} u_${key};`);
-      }
-      let location = shaderLocationMap[key];
-      if (!location && key === 'THETA_OFFSET') {
-        location = 15;
-      }
-      str += `
-          #ifdef USE_ATTRIBUTE_${key.toUpperCase()}
-          layout(location = ${shaderLocationMap[key]}) in ${
-        DefaultUniformStyleType[key]
-      } a_${key.charAt(0).toUpperCase() + key.slice(1)};
-        #endif\n
-        `;
-    });
-    const attributeUniforms = uniforms.length
-      ? `
-layout(std140) uniform AttributeUniforms {
-${uniforms.join('\n')}
-};
-    `
-      : '';
-    str += attributeUniforms;
+    return shaderInject;
+  }
 
-    let innerStr = '';
-    this.layer.enableShaderEncodeStyles.forEach((key) => {
-      innerStr += `\n
-    #ifdef USE_ATTRIBUTE_${key.toUpperCase()}
-      ${DefaultUniformStyleType[key]} ${key}  = a_${
-        key.charAt(0).toUpperCase() + key.slice(1)
-      };
-    #else
-      ${DefaultUniformStyleType[key]} ${key} = u_${key};
-    #endif\n
-    `;
-    });
+  protected getDefines(): Record<string, ShaderDefine> {
+    // define atribute Layout Location
+    const atributeLocationDefines = Object.keys(this.attributeLocation).reduce<
+      Record<string, number>
+    >((result, key) => {
+      const normalizedKey = DEFINE_ATTRIBUTE_LOCATION_PREFIX + key;
+      result[normalizedKey] = this.attributeLocation[key];
+      return result;
+    }, {});
 
-    return {
-      'vs:#decl': str,
-      'fs:#decl': attributeUniforms,
-      'vs:#main-start': innerStr,
-    };
+    return { ...atributeLocationDefines };
   }
 
   // 获取数据映射样式
@@ -304,10 +265,7 @@ ${uniforms.join('\n')}
         // @ts-ignore
         const keyValue = this.layer.getLayerConfig()[key];
 
-        let value =
-          typeof keyValue === 'undefined'
-            ? DefaultUniformStyleValue[key]
-            : keyValue;
+        let value = typeof keyValue === 'undefined' ? DefaultUniformStyleValue[key] : keyValue;
         if (key === 'stroke') {
           value = rgb2arr(value);
         }
@@ -316,19 +274,41 @@ ${uniforms.join('\n')}
     });
     return options;
   }
+
   // 注册数据映射样式
   protected registerStyleAttribute() {
     Object.keys(this.layer.encodeStyleAttribute).forEach((key) => {
       const options = getCommonStyleAttributeOptions(key);
       if (options) {
         this.styleAttributeService.registerStyleAttribute(options);
-
-        if (options.descriptor) {
-          options.descriptor.shaderLocation = shaderLocationMap[key];
-        }
       }
     });
   }
+
+  /**
+   * 注册 Position 属性 64 位地位部分，当经纬度数据开启双精度浮点数使用，
+   * 避免大于 20层级以上出现数据偏移
+   */
+  protected registerPosition64LowAttribute(enable64bitPosition = true) {
+    // save low part for enabled double precision POSITION attribute
+    this.styleAttributeService.registerStyleAttribute({
+      name: 'position64Low',
+      type: AttributeType.Attribute,
+      descriptor: {
+        name: 'a_Position64Low',
+        shaderLocation: this.attributeLocation.POSITION_64LOW,
+        buffer: {
+          data: [],
+          type: gl.FLOAT,
+        },
+        size: 2,
+        update: (feature: IEncodeFeature, featureIdx: number, vertex: number[]) => {
+          return enable64bitPosition ? [fp64LowPart(vertex[0]), fp64LowPart(vertex[1])] : [0, 0];
+        },
+      },
+    });
+  }
+
   public updateEncodeAttribute(type: string, flag: boolean) {
     this.encodeStyleAttribute[type] = flag;
   }
@@ -338,19 +318,17 @@ ${uniforms.join('\n')}
     const commonUniforms = this.getCommonUniformsInfo();
     if (attrUniforms.uniformsLength !== 0) {
       this.attributeUnifoms = this.rendererService.createBuffer({
-        data: new Float32Array(
-          MultipleOfFourNumber(attrUniforms.uniformsLength),
-        ).fill(0), // 长度需要大于等于 4
+        data: new Float32Array(MultipleOfFourNumber(attrUniforms.uniformsLength)).fill(0), // 长度需要大于等于 4
         isUBO: true,
+        label: 'layerModelAttributeUnifoms',
       });
       this.uniformBuffers.push(this.attributeUnifoms);
     }
     if (commonUniforms.uniformsLength !== 0) {
       this.commonUnifoms = this.rendererService.createBuffer({
-        data: new Float32Array(
-          MultipleOfFourNumber(commonUniforms.uniformsLength),
-        ).fill(0),
+        data: new Float32Array(MultipleOfFourNumber(commonUniforms.uniformsLength)).fill(0),
         isUBO: true,
+        label: 'layerModelCommonUnifoms',
       });
       this.uniformBuffers.push(this.commonUnifoms);
     }
@@ -393,9 +371,7 @@ ${uniforms.join('\n')}
 
   // 更新支持数据映射的uniform
   public updateStyleUnifoms() {
-    const { uniformsArray } = this.getUniformsBufferInfo(
-      this.getStyleAttribute(),
-    );
+    const { uniformsArray } = this.getUniformsBufferInfo(this.getStyleAttribute());
     const { uniformsArray: commonUniformsArray } = this.getCommonUniformsInfo();
     this.attributeUnifoms?.subData({
       offset: 0,
@@ -406,4 +382,60 @@ ${uniforms.join('\n')}
       data: new Uint8Array(new Float32Array(commonUniformsArray).buffer),
     });
   }
+}
+
+/**
+ * 获取动态注入参与数据映射 uniform/attribute
+ */
+function getDynamicStyleInject(
+  shaderEncodeStyles: string[],
+  styleAttribute: Record<string, any>,
+): ShaderInject {
+  const uniforms: string[] = [];
+  let vsDeclInjection = '';
+
+  // 支持数据映射的类型
+  shaderEncodeStyles.forEach((key) => {
+    const upperCaseKey = key.replace(/([a-z])([A-Z])/g, '$1_$2').toUpperCase();
+    const shaderDefineName = DEFINE_ATTRIBUTE_LOCATION_PREFIX + upperCaseKey;
+
+    if (styleAttribute[key]) {
+      // 配置了数据映射的类型
+      vsDeclInjection += `#define USE_ATTRIBUTE_${upperCaseKey} 0.0 \n`;
+    } else {
+      uniforms.push(`  ${DefaultUniformStyleType[key]} u_${key};`);
+    }
+
+    vsDeclInjection += `
+#ifdef USE_ATTRIBUTE_${upperCaseKey}
+layout(location = ${shaderDefineName}) in ${DefaultUniformStyleType[key]} a_${key.charAt(0).toUpperCase() + key.slice(1)};
+#endif \n`;
+  });
+
+  const fsDeclInjection = uniforms.length
+    ? `
+layout(std140) uniform AttributeUniforms {
+  ${uniforms.join('\n')}
+};\n`
+    : '';
+
+  vsDeclInjection += fsDeclInjection;
+
+  let vsMainInjection = '';
+  shaderEncodeStyles.forEach((key) => {
+    const upperCaseKey = key.replace(/([a-z])([A-Z])/g, '$1_$2').toUpperCase();
+    vsMainInjection += `
+  #ifdef USE_ATTRIBUTE_${upperCaseKey}
+    ${DefaultUniformStyleType[key]} ${key} = a_${key.charAt(0).toUpperCase() + key.slice(1)};
+  #else
+    ${DefaultUniformStyleType[key]} ${key} = u_${key};
+  #endif
+  `;
+  });
+
+  return {
+    'vs:#decl': vsDeclInjection,
+    'fs:#decl': fsDeclInjection,
+    'vs:#main-start': vsMainInjection,
+  };
 }

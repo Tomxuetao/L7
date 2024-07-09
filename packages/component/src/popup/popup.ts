@@ -7,12 +7,7 @@ import type {
   ISceneService,
   L7Container,
 } from '@antv/l7-core';
-import {
-  DOM,
-  anchorTranslate,
-  anchorType,
-  applyAnchorClass,
-} from '@antv/l7-utils';
+import { DOM, anchorTranslate, anchorType, applyAnchorClass } from '@antv/l7-utils';
 import { EventEmitter } from 'eventemitter3';
 import { createL7Icon } from '../utils/icon';
 
@@ -173,6 +168,7 @@ export default class Popup<O extends IPopupOption = IPopupOption>
 
   public setOptions(option: Partial<O>) {
     this.show();
+    const { className: oldClassName } = this.popupOption;
     this.popupOption = {
       ...this.popupOption,
       ...option,
@@ -187,8 +183,6 @@ export default class Popup<O extends IPopupOption = IPopupOption>
         'maxWidth',
         'anchor',
         'stopPropagation',
-        'className',
-        'style',
         'lngLat',
         'offsets',
       ])
@@ -220,6 +214,15 @@ export default class Popup<O extends IPopupOption = IPopupOption>
       this.setHTML(option.html);
     } else if (this.checkUpdateOption(option, ['text']) && option.text) {
       this.setText(option.text);
+    }
+    if (this.checkUpdateOption(option, ['className'])) {
+      if (oldClassName) {
+        this.container.classList.remove(oldClassName ?? '');
+      }
+      this.container.classList.add(option.className ?? '');
+    }
+    if (this.checkUpdateOption(option, ['style'])) {
+      DOM.addStyle(this.container, option.style ?? '');
     }
     if (this.checkUpdateOption(option, ['lngLat']) && option.lngLat) {
       this.setLnglat(option.lngLat);
@@ -286,10 +289,7 @@ export default class Popup<O extends IPopupOption = IPopupOption>
       if (!this.contentTitle) {
         this.contentTitle = DOM.create('div', 'l7-popup-content__title');
         if (this.content.firstChild) {
-          this.content.insertBefore(
-            this.contentTitle!,
-            this.content.firstChild,
-          );
+          this.content.insertBefore(this.contentTitle!, this.content.firstChild);
         } else {
           this.content.append(this.contentTitle!);
         }
@@ -515,11 +515,7 @@ export default class Popup<O extends IPopupOption = IPopupOption>
       this.closeButton = undefined;
     }
 
-    this.contentPanel = DOM.create(
-      'div',
-      'l7-popup-content__panel',
-      this.content,
-    );
+    this.contentPanel = DOM.create('div', 'l7-popup-content__panel', this.content);
   }
 
   protected onCloseButtonClick = (e: Event) => {
@@ -531,8 +527,7 @@ export default class Popup<O extends IPopupOption = IPopupOption>
   //更新位置 支持zoom时更新
   private updatePosition = (ev: any, zoom: Boolean = true) => {
     const hasPosition = !!this.lngLat;
-    const { className, style, maxWidth, anchor, stopPropagation } =
-      this.popupOption;
+    const { className, style, maxWidth, anchor, stopPropagation } = this.popupOption;
     if (!this.mapsService || !hasPosition || !this.content) {
       return;
     }
@@ -554,13 +549,11 @@ export default class Popup<O extends IPopupOption = IPopupOption>
 
       // 高德地图需要阻止事件冒泡 // 测试mapbox 地图不需要添加
       if (stopPropagation) {
-        ['mousemove', 'mousedown', 'mouseup', 'click', 'dblclick'].forEach(
-          (type) => {
-            this.container.addEventListener(type, (e) => {
-              e.stopPropagation();
-            });
-          },
-        );
+        ['mousemove', 'mousedown', 'mouseup', 'click', 'dblclick'].forEach((type) => {
+          this.container.addEventListener(type, (e) => {
+            e.stopPropagation();
+          });
+        });
       }
 
       this.container.style.whiteSpace = 'nowrap';
@@ -595,11 +588,7 @@ export default class Popup<O extends IPopupOption = IPopupOption>
    * @param {Boolean} [useTransition=false] 是否使用过度效果
    * @protected
    */
-  protected setPopupPosition(
-    left: number,
-    top: number,
-    useTransition: boolean = false,
-  ) {
+  protected setPopupPosition(left: number, top: number, useTransition: boolean = false) {
     if (this.container) {
       const { offsets } = this.popupOption;
       this.container.style.left = left + offsets[0] + 'px';

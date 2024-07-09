@@ -3,26 +3,36 @@ import type {
   IEncodeFeature,
   ILayerConfig,
   IModel,
-  ITexture2D} from '@antv/l7-core';
-import {
-  AttributeType,
-  gl
+  ITexture2D,
 } from '@antv/l7-core';
-import { rgb2arr } from '@antv/l7-utils';
+import { AttributeType, gl } from '@antv/l7-core';
+import { fp64LowPart, rgb2arr } from '@antv/l7-utils';
 import BaseModel from '../../core/BaseModel';
 import type { ILineLayerStyleOptions } from '../../core/interface';
 import { LineArcTriangulation } from '../../core/triangulation';
 import line_arc_frag from '../shaders/greatCircle/line_arc_great_circle_frag.glsl';
 import line_arc2d_vert from '../shaders/greatCircle/line_arc_great_circle_vert.glsl';
-import { ShaderLocation } from '../../core/CommonStyleAttribute';
 const lineStyleObj: { [key: string]: number } = {
   solid: 0.0,
   dash: 1.0,
 };
 
 export default class GreatCircleModel extends BaseModel {
+  protected get attributeLocation() {
+    return Object.assign(super.attributeLocation, {
+      MAX: super.attributeLocation.MAX,
+      SIZE: 9,
+      INSTANCE: 10,
+      INSTANCE_64LOW: 11,
+      UV: 12,
+    });
+  }
   protected texture: ITexture2D;
-  protected getCommonUniformsInfo(): { uniformsArray: number[]; uniformsLength: number; uniformsOption:{[key: string]: any}  } {
+  protected getCommonUniformsInfo(): {
+    uniformsArray: number[];
+    uniformsLength: number;
+    uniformsOption: { [key: string]: any };
+  } {
     const {
       sourceColor,
       targetColor,
@@ -33,7 +43,7 @@ export default class GreatCircleModel extends BaseModel {
       iconStep = 100,
       segmentNumber = 30,
     } = this.layer.getLayerConfig() as Partial<ILineLayerStyleOptions>;
-    
+
     const { animateOption } = this.layer.getLayerConfig() as ILayerConfig;
     if (dashArray.length === 2) {
       dashArray.push(0, 0);
@@ -53,7 +63,7 @@ export default class GreatCircleModel extends BaseModel {
       useLinearColor = 1;
     }
     let u_time = this.layer.getLayerAnimateTime();
-    if(isNaN(u_time)){
+    if (isNaN(u_time)) {
       u_time = 0.0;
     }
     const commonOptions = {
@@ -72,9 +82,9 @@ export default class GreatCircleModel extends BaseModel {
       // u_texture: this.texture, // 贴图
       // 渐变色支持参数
       u_linearColor: useLinearColor,
-    };  
-    const commonBufferInfo = this.getUniformsBufferInfo(commonOptions);    
-    return commonBufferInfo; 
+    };
+    const commonBufferInfo = this.getUniformsBufferInfo(commonOptions);
+    return commonBufferInfo;
   }
   // public getAnimateUniforms(): IModelUniform {
   //   const { animateOption } = this.layer.getLayerConfig() as ILayerConfig;
@@ -98,15 +108,15 @@ export default class GreatCircleModel extends BaseModel {
   }
 
   public async buildModels(): Promise<IModel[]> {
-    const { segmentNumber = 30 } =
-    this.layer.getLayerConfig() as ILineLayerStyleOptions;
+    const { segmentNumber = 30 } = this.layer.getLayerConfig() as ILineLayerStyleOptions;
     const model = await this.layer.buildLayerModel({
       moduleName: 'lineGreatCircle',
       vertexShader: line_arc2d_vert,
       fragmentShader: line_arc_frag,
       triangulation: LineArcTriangulation,
-      styleOption:{segmentNumber},
-      inject:this.getInject(),
+      styleOption: { segmentNumber },
+      defines: this.getDefines(),
+      inject: this.getInject(),
       depth: { enable: false },
     });
     return [model];
@@ -117,7 +127,7 @@ export default class GreatCircleModel extends BaseModel {
       type: AttributeType.Attribute,
       descriptor: {
         name: 'a_Size',
-        shaderLocation:ShaderLocation.SIZE,
+        shaderLocation: this.attributeLocation.SIZE,
         buffer: {
           // give the WebGL driver a hint that this buffer may change
           usage: gl.DYNAMIC_DRAW,
@@ -137,19 +147,39 @@ export default class GreatCircleModel extends BaseModel {
       type: AttributeType.Attribute,
       descriptor: {
         name: 'a_Instance',
-        shaderLocation:12,
+        shaderLocation: this.attributeLocation.INSTANCE,
         buffer: {
           usage: gl.STATIC_DRAW,
           data: [],
           type: gl.FLOAT,
         },
         size: 4,
-        update: (
-          feature: IEncodeFeature,
-          featureIdx: number,
-          vertex: number[],
-        ) => {
+        update: (feature: IEncodeFeature, featureIdx: number, vertex: number[]) => {
           return [vertex[3], vertex[4], vertex[5], vertex[6]];
+        },
+      },
+    });
+
+    // save low part for enabled double precision INSTANCE attribute
+    this.styleAttributeService.registerStyleAttribute({
+      name: 'instance64Low',
+      type: AttributeType.Attribute,
+      descriptor: {
+        name: 'a_Instance64Low',
+        shaderLocation: this.attributeLocation.INSTANCE_64LOW,
+        buffer: {
+          usage: gl.STATIC_DRAW,
+          data: [],
+          type: gl.FLOAT,
+        },
+        size: 4,
+        update: (feature: IEncodeFeature, featureIdx: number, vertex: number[]) => {
+          return [
+            fp64LowPart(vertex[3]),
+            fp64LowPart(vertex[4]),
+            fp64LowPart(vertex[5]),
+            fp64LowPart(vertex[6]),
+          ];
         },
       },
     });
@@ -159,7 +189,7 @@ export default class GreatCircleModel extends BaseModel {
       type: AttributeType.Attribute,
       descriptor: {
         name: 'a_iconMapUV',
-        shaderLocation:14,
+        shaderLocation: this.attributeLocation.UV,
         buffer: {
           // give the WebGL driver a hint that this buffer may change
           usage: gl.DYNAMIC_DRAW,

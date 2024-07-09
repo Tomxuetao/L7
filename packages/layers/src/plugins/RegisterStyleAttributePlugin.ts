@@ -6,7 +6,7 @@ import type {
   L7Container,
 } from '@antv/l7-core';
 import { AttributeType, gl } from '@antv/l7-core';
-import { ShaderLocation } from '../core/CommonStyleAttribute';
+import { COMMON_ATTRIBUTE_LOCATION } from '../core/CommonStyleAttribute';
 import { isTileGroup } from '../tile/utils/utils';
 
 /**
@@ -24,10 +24,7 @@ export default class RegisterStyleAttributePlugin implements ILayerPlugin {
     });
   }
 
-  private registerBuiltinAttributes(
-    styleAttributeService: IStyleAttributeService,
-    layer: ILayer,
-  ) {
+  private registerBuiltinAttributes(styleAttributeService: IStyleAttributeService, layer: ILayer) {
     // MaskLayer 只需要注册 a_Position
     if (layer.type === 'MaskLayer') {
       this.registerPositionAttribute(styleAttributeService);
@@ -37,28 +34,21 @@ export default class RegisterStyleAttributePlugin implements ILayerPlugin {
     this.registerPositionAttribute(styleAttributeService);
     // this.registerFilterAttribute(styleAttributeService);//数据层数据过滤
     this.registerColorAttribute(styleAttributeService);
-    this.registerVertexIdAttribute(styleAttributeService);
   }
 
-  private registerPositionAttribute(
-    styleAttributeService: IStyleAttributeService,
-  ) {
+  private registerPositionAttribute(styleAttributeService: IStyleAttributeService) {
     styleAttributeService.registerStyleAttribute({
       name: 'position',
       type: AttributeType.Attribute,
       descriptor: {
         name: 'a_Position',
-        shaderLocation: ShaderLocation.POSITION,
+        shaderLocation: COMMON_ATTRIBUTE_LOCATION.POSITION,
         buffer: {
           data: [],
           type: gl.FLOAT,
         },
         size: 3,
-        update: (
-          feature: IEncodeFeature,
-          featureIdx: number,
-          vertex: number[],
-        ) => {
+        update: (feature: IEncodeFeature, featureIdx: number, vertex: number[]) => {
           return vertex.length === 2
             ? [vertex[0], vertex[1], 0]
             : [vertex[0], vertex[1], vertex[2]];
@@ -67,15 +57,13 @@ export default class RegisterStyleAttributePlugin implements ILayerPlugin {
     });
   }
 
-  private registerColorAttribute(
-    styleAttributeService: IStyleAttributeService,
-  ) {
+  private registerColorAttribute(styleAttributeService: IStyleAttributeService) {
     styleAttributeService.registerStyleAttribute({
       name: 'color',
       type: AttributeType.Attribute,
       descriptor: {
         name: 'a_Color',
-        shaderLocation: ShaderLocation.COLOR,
+        shaderLocation: COMMON_ATTRIBUTE_LOCATION.COLOR,
         buffer: {
           // give the WebGL driver a hint that this buffer may change
           usage: gl.DYNAMIC_DRAW,
@@ -86,30 +74,6 @@ export default class RegisterStyleAttributePlugin implements ILayerPlugin {
         update: (feature: IEncodeFeature) => {
           const { color } = feature;
           return !color || !color.length ? [1, 1, 1, 1] : color;
-        },
-      },
-    });
-  }
-
-  private registerVertexIdAttribute(
-    styleAttributeService: IStyleAttributeService,
-  ) {
-    styleAttributeService.registerStyleAttribute({
-      // 统一注册每个顶点的唯一编号（目前用于样式的数据映射计算使用）
-      name: 'vertexId',
-      type: AttributeType.Attribute,
-      descriptor: {
-        name: 'a_vertexId',
-        shaderLocation: ShaderLocation.VERTEX_ID,
-        buffer: {
-          // give the WebGL driver a hint that this buffer may change
-          usage: gl.DYNAMIC_DRAW,
-          data: [],
-          type: gl.FLOAT,
-        },
-        size: 1,
-        update: (feature: IEncodeFeature, featureIdx: number) => {
-          return [featureIdx];
         },
       },
     });
